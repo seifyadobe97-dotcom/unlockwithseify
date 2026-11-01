@@ -155,17 +155,18 @@ async function saveReview(id){
 
 async function adminPage(){
  if(!T.user||!T.admin){notice('هذه الصفحة مخصصة لصلاحية الإدارة الموثقة','warning');return;}
- const [booksR,unitsR,lessonsR,activitiesR,vocabR,mediaR]=await Promise.all([
+ const [booksR,unitsR,lessonsR,activitiesR,vocabR,mediaR,registryR]=await Promise.all([
   db.from('books').select('id,title,slug,status,position').order('position'),
   db.from('units').select('id,book_id,number,title,status').order('book_id').order('number'),
   db.from('lessons').select('id,unit_id,title,slug,status,position').order('position'),
   db.from('activities').select('id,lesson_id,status,source_reference'),
   db.from('vocabulary').select('id,unit_id,status'),
-  db.from('media_assets').select('id,lesson_id,kind,original_track,asset_status')
+  db.from('media_assets').select('id,lesson_id,kind,original_track,asset_status'),
+  db.from('exercise_registry').select('id,lesson_id,pdf_page,source_title,activity_label,grading_mode,conversion_status').order('pdf_page')
  ]);
- const results=[booksR,unitsR,lessonsR,activitiesR,vocabR,mediaR];
+ const results=[booksR,unitsR,lessonsR,activitiesR,vocabR,mediaR,registryR];
  if(results.some(x=>x.error)){notice('تعذر فتح لوحة الأدمن: '+(results.find(x=>x.error)?.error?.message||''),'warning');return;}
- const books=booksR.data||[],units=unitsR.data||[],lessons=lessonsR.data||[],activities=activitiesR.data||[],words=vocabR.data||[],media=mediaR.data||[];
+ const books=booksR.data||[],units=unitsR.data||[],lessons=lessonsR.data||[],activities=activitiesR.data||[],words=vocabR.data||[],media=mediaR.data||[],registry=registryR.data||[];
  const stateOpts=(status)=>['draft','review','published'].map(x=>'<option value="'+x+'" '+(status===x?'selected':'')+'>'+x+'</option>').join('');
  const selector=(table,id,status,disabled=false)=>'<div class="row"><select class="field" style="width:auto" data-state-select="'+table+'-'+id+'" aria-label="حالة النشر">'+stateOpts(status)+'</select><button type="button" class="button small" data-action="admin-update" data-table="'+table+'" data-id="'+id+'" '+(disabled?'disabled':'')+'>حفظ</button></div>';
  let cards=books.map(b=>{
@@ -174,7 +175,7 @@ async function adminPage(){
    +bus.map(u=>{
      const uls=ls.filter(l=>l.unit_id===u.id),vocab=words.filter(w=>w.unit_id===u.id),q=activities.filter(a=>uls.some(l=>l.id===a.lesson_id));
      return '<div style="padding:13px 0;border-top:1px solid var(--line)"><div class="row" style="justify-content:space-between"><strong>Unit '+u.number+' · '+esc(u.title)+'</strong>'+selector('units',u.id,u.status)+'</div><p class="subtle">الأقسام: '+uls.length+' · الأسئلة: '+q.length+' · المفردات: '+vocab.length+'</p>'
-     +uls.map(l=>{const lmedia=media.filter(m=>m.lesson_id===l.id),qm=q.filter(a=>a.lesson_id===l.id);return '<div class="lesson-card" style="margin:7px 0"><div><strong class="en">'+esc(l.title)+'</strong><div class="subtle">'+qm.length+' questions '+(lmedia.length?' · '+lmedia.map(m=>esc(m.kind+':'+(m.original_track||'video')+'='+m.asset_status)).join(', '):'')+'</div></div>'+selector('lessons',l.id,l.status)+'</div>'+qm.map(a=>'<div class="lesson-card" style="margin:5px 0 5px 15px"><div><span class="subtle">'+esc(a.source_reference||'Activity')+'</span></div>'+selector('activities',a.id,a.status)+'</div>').join('');}).join('')
+     +uls.map(l=>{const lmedia=media.filter(m=>m.lesson_id===l.id),qm=q.filter(a=>a.lesson_id===l.id);return '<div class="lesson-card" style="margin:7px 0"><div><strong class="en">'+esc(l.title)+'</strong><div class="subtle">'+qm.length+' questions · '+registry.filter(x=>x.lesson_id===l.id).length+' source entries '+(lmedia.length?' · '+lmedia.map(m=>esc(m.kind+':'+(m.original_track||'video')+'='+m.asset_status)).join(', '):'')+'</div></div>'+selector('lessons',l.id,l.status)+'</div>'+qm.map(a=>'<div class="lesson-card" style="margin:5px 0 5px 15px"><div><span class="subtle">'+esc(a.source_reference||'Activity')+'</span></div>'+selector('activities',a.id,a.status)+'</div>').join('');}).join('')
      +'</div>';
    }).join('')+'</section>';
  }).join('');
