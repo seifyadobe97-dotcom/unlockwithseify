@@ -105,7 +105,17 @@ async function lessonPage(id){
    +(ans?.review?'<div class="feedback"><strong>مراجعة المدرس'+(ans.review.score!==null?' · '+ans.review.score+'/100':'')+'</strong><p>'+esc(ans.review.feedback_ar)+'</p></div>':'')+'</article>';
  }).join('')||'<div class="empty">لم يُسجل نشاط أصلي لهذا الجزء بعد.</div>')+'</section>';
   const missing=['audio','video'].includes(l.kind);
- frame(l.title,T.book.title+' · Unit '+T.unit.number,crumb(T.book.title,T.unit.title,l.title)+'<div class="row" style="margin-bottom:14px">'+button('رجوع للوحدة','data-action="unit" data-id="'+T.unit.id+'"')+badge(l.status)+'</div>'+(missing?'<div class="notice warning"><h2>سيتم النشر</h2>التسجيل الصوتي أو الفيديو الأصلي الخاص بهذا الجزء سيتم نشره بعد رفعه واعتماده من لوحة الإدارة. تقدر حاليًا تذاكر الشرح والتدريبات النصية، لكن ده مش اختبار Listening أو Watching.</div>':'')+guide+expandedGuide+originalReadings+scriptExtract+sources+'<section class="card"><h2>التدريبات الرقمية المشروحة</h2>'+(question||'<div class="empty">لم تُنشر بعد تدريبات هذا القسم للمستخدم الحالي. المرجع الأصلي محفوظ في المشروع الخاص.</div>')+'</section>'+sourceIndex+vocabularyPanel+workHtml+sourceAlert+
+ let mediaPanel='';
+ if(missing){
+  const {data:assets,error:mediaError}=await db.from('media_assets').select('id,kind,original_track,storage_path,asset_status').eq('lesson_id',id).order('original_track');
+  if(mediaError)notice(mediaError.message,'warning');
+  const usable=(assets||[]).filter(x=>x.asset_status==='approved'&&x.storage_path);
+  mediaPanel='<section class="card" style="margin-bottom:16px"><h2>'+esc(l.title)+' — ملفات الدرس</h2>'+
+  ((assets||[]).length?(assets||[]).map(x=>'<div class="lesson-card"><div><strong class="en">'+esc(x.kind==='audio'?'Track '+(x.original_track||''):'Unit Video')+'</strong><div class="subtle">'+(x.asset_status==='approved'?'متاح للتشغيل':'سيتم النشر')+'</div></div>'+(x.asset_status==='approved'&&x.storage_path?button('تشغيل الملف','data-action="play-media" data-id="'+x.id+'"'):'<span class="tag draft">سيتم النشر</span>')+'<div class="media-playback" data-player="'+x.id+'"></div></div>').join(''):
+  '<div class="notice warning">سيتم النشر بعد رفع ملف الصوت أو الفيديو واعتماده من لوحة الإدارة.</div>')+
+  '<p class="subtle">الصوت والفيديو الأصليان مطلوبان لاختبار المهارة. الشرح والسكريبتات المنشورة في أجزاء منفصلة.</p></section>';
+ }
+ frame(l.title,T.book.title+' · Unit '+T.unit.number,crumb(T.book.title,T.unit.title,l.title)+'<div class="row" style="margin-bottom:14px">'+button('رجوع للوحدة','data-action="unit" data-id="'+T.unit.id+'"')+badge(l.status)+'</div>'+mediaPanel+guide+expandedGuide+originalReadings+scriptExtract+sources+'<section class="card"><h2>التدريبات الرقمية المشروحة</h2>'+(question||'<div class="empty">لم تُنشر بعد تدريبات هذا القسم للمستخدم الحالي. المرجع الأصلي محفوظ في المشروع الخاص.</div>')+'</section>'+sourceIndex+vocabularyPanel+workHtml+sourceAlert+
   '<nav class="row lesson-nav" aria-label="الانتقال بين الدروس">'+
   (T.lessons.findIndex(x=>x.id===id)>0?button('الجزء السابق','data-action="lesson" data-id="'+T.lessons[T.lessons.findIndex(x=>x.id===id)-1].id+'"'):'')+
   button('كل أجزاء الوحدة','data-action="unit" data-id="'+T.unit.id+'"')+
@@ -153,6 +163,21 @@ async function saveIndexedExercise(id,submit=false){
  if(err){notice('فشل حفظ الإجابة: '+err.message,'warning');return;}
  notice(submit?'تم تسليم النشاط للمراجعة':'تم حفظ الإجابة');
  await lessonPage(T.lesson.id);
+}
+
+async function playMedia(id){
+ if(!T.user||!T.session?.access_token){notice('تسجيل الدخول مطلوب','warning');return;}
+ const {data:asset,error}=await db.from('media_assets').select('id,kind,asset_status,storage_path').eq('id',id).maybeSingle();
+ if(error||asset?.asset_status!=='approved'||!asset.storage_path){notice('سيتم النشر بعد اعتماد الملف','warning');return;}
+ const response=await fetch(cfg.url+'/functions/v1/get-course-file',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+T.session.access_token,'apikey':cfg.publishableKey},body:JSON.stringify({path:asset.storage_path})}).catch(()=>null);
+ const data=response?await response.json().catch(()=>({})):{};
+ if(!response?.ok||!data.url){notice('تعذر فتح الملف — تحقق من صلاحيات الكتاب','warning');return;}
+ const holder=document.querySelector('[data-player="'+id+'"]');if(!holder)return;
+ const tag=asset.kind==='video'?'video':'audio';
+ const player=document.createElement(tag);player.controls=true;player.preload='metadata';player.src=data.url;
+ player.style.maxWidth='100%';player.style.width=tag==='video'?'min(100%,500px)':'min(100%,380px)';
+ player.setAttribute('aria-label',asset.kind==='video'?'فيديو الدرس':'تسجيل الدرس');
+ holder.replaceChildren(player);
 }
 async function sourcePage(page){
  if(!T.user||!T.unit||!T.book||!T.session?.access_token){notice('يلزم تسجيل الدخول لعرض المصدر','warning');return;}
@@ -419,7 +444,7 @@ async function adminUpdate(el){
 document.addEventListener('click',async e=>{
  const el=e.target.closest('button[data-action]');if(!el)return;
  const act=el.dataset.action;
- try{if(act==='home')home();else if(act==='admin')await adminPage();else if(act==='admin-preview-book')await bookPage(el.dataset.id);else if(act==='admin-tab'){T.adminTab=el.dataset.tab;await adminPage();}else if(act==='reviews')await reviewsPage();else if(act==='review-exercises')await reviewIndexedExercisesPage();else if(act==='save-indexed-feedback')await saveIndexedFeedback(el.dataset.id);else if(act==='save-review')await saveReview(el.dataset.id);else if(act==='results')await resultsPage();else if(act==='source-page')await sourcePage(el.dataset.page);else if(act==='save-exercise')await saveIndexedExercise(el.dataset.id,false);else if(act==='submit-exercise')await saveIndexedExercise(el.dataset.id,true);else if(act==='save-work')await saveWork(false);else if(act==='submit-work')await saveWork(true);else if(act==='admin-update')await adminUpdate(el);else if(act==='enroll-student')await enrollStudent();else if(act==='upload-media')await uploadMedia(el.dataset.id);else if(act==='approve-media')await approveMedia(el.dataset.id);else if(act==='upload-sources')await uploadSources();else if(act==='login')authPage();else if(act==='signup')authPage(true);else if(act==='logout'){await db.auth.signOut();await refresh(true)}else if(act==='book')await bookPage(el.dataset.id||T.book?.id);else if(act==='unit')await unitPage(el.dataset.id);else if(act==='lesson')await lessonPage(el.dataset.id);else if(act==='grade')await grade(el.dataset.id,el);}catch(err){notice('خطأ غير متوقع: '+err.message,'warning');}
+ try{if(act==='home')home();else if(act==='admin')await adminPage();else if(act==='admin-preview-book')await bookPage(el.dataset.id);else if(act==='admin-tab'){T.adminTab=el.dataset.tab;await adminPage();}else if(act==='reviews')await reviewsPage();else if(act==='review-exercises')await reviewIndexedExercisesPage();else if(act==='save-indexed-feedback')await saveIndexedFeedback(el.dataset.id);else if(act==='save-review')await saveReview(el.dataset.id);else if(act==='results')await resultsPage();else if(act==='play-media')await playMedia(el.dataset.id);else if(act==='source-page')await sourcePage(el.dataset.page);else if(act==='save-exercise')await saveIndexedExercise(el.dataset.id,false);else if(act==='submit-exercise')await saveIndexedExercise(el.dataset.id,true);else if(act==='save-work')await saveWork(false);else if(act==='submit-work')await saveWork(true);else if(act==='admin-update')await adminUpdate(el);else if(act==='enroll-student')await enrollStudent();else if(act==='upload-media')await uploadMedia(el.dataset.id);else if(act==='approve-media')await approveMedia(el.dataset.id);else if(act==='upload-sources')await uploadSources();else if(act==='login')authPage();else if(act==='signup')authPage(true);else if(act==='logout'){await db.auth.signOut();await refresh(true)}else if(act==='book')await bookPage(el.dataset.id||T.book?.id);else if(act==='unit')await unitPage(el.dataset.id);else if(act==='lesson')await lessonPage(el.dataset.id);else if(act==='grade')await grade(el.dataset.id,el);}catch(err){notice('خطأ غير متوقع: '+err.message,'warning');}
 });
 document.getElementById('nav-home').addEventListener('click',home);
 db.auth.onAuthStateChange((_event,session)=>{if((session?.access_token||null)!==(T.session?.access_token||null)){Promise.resolve().then(()=>refresh(true));}});
