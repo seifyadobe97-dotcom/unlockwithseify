@@ -14,7 +14,7 @@ const badge=s=>'<span class="tag '+(s==="published"?"ok":"draft")+'">'+esc(s)+'<
 const crumb=(...parts)=>'<div class="crumbs">'+parts.map(s=>'<span>'+esc(s)+'</span>').join(' • ')+'</div>';
 const sourceAlert='<div class="notice warning"><strong>تنويه المحتوى:</strong> صفحات الكتاب الكاملة والوسائط مرخصة للمتعلمين المصرح لهم فقط؛ لن تُنشر كصور في مستودع GitHub العام. الأصل محفوظ في الحزمة المحلية، ويُربط بالمنصة عبر تخزين خاص لاحقًا. لا تُعتمد درجة الصوت أو الفيديو قبل رفع الملف الأصلي.</div>';
 function frame(title,subtitle,inner){root.innerHTML='<section class="hero"><span class="eyebrow">UNLOCK LEVEL 1 · WITH SEIFY</span><h1>'+esc(title)+'</h1><p>'+esc(subtitle)+'</p></section>'+inner;}
-function menu(){sessEl.innerHTML=T.user?'<span class="subtle">'+esc(T.user.email)+'</span> '+(T.admin?button('لوحة الإدارة','data-action="admin"'):'':button('درجاتي','data-action="results"'))+button('تسجيل الخروج','data-action="logout"'):'<button class="nav-btn" data-action="login">دخول الطلاب</button>';}
+function menu(){sessEl.innerHTML=T.user?'<span class="subtle">'+esc(T.user.email)+'</span> '+(T.admin?button('لوحة الإدارة','data-action="admin"'):button('درجاتي','data-action="results"'))+button('تسجيل الخروج','data-action="logout"'):'<button class="nav-btn" data-action="login">دخول الطلاب</button>';}
 function home(){
  T.book=T.unit=T.lesson=null; menu();
  const cards=NAMES.map(([slug,title,ico],i)=>{
@@ -174,7 +174,7 @@ async function adminPage(){
      +'</div>';
    }).join('')+'</section>';
  }).join('');
- frame('Admin · Content Review','مراجعة حالة نشر الكتب والوحدات والدروس — أي تغيير يُطبَّق بصلاحيات Supabase الآمنة','<div class="notice warning">مسودات الوحدة غير مكتملة. الرفع والنشر مسئولية الإدارة بعد مراجعة كل تمرين وتصحيحه. الميديا المفقودة تمنع نشر دروس المشاهدة والاستماع من هنا.</div>'<div class="row" style="margin:16px 0">'+button('مراجعة التسليمات','data-action="reviews"')+'</div><div class="stack">'+cards+'</div>');
+ frame('Admin · Content Review','مراجعة حالة نشر الكتب والوحدات والدروس — أي تغيير يُطبَّق بصلاحيات Supabase الآمنة','<div class="notice warning">مسودات الوحدة غير مكتملة. الرفع والنشر مسئولية الإدارة بعد مراجعة كل تمرين وتصحيحه. الميديا المفقودة تمنع نشر دروس المشاهدة والاستماع من هنا.</div>'+'<div class="row" style="margin:16px 0">'+button('مراجعة التسليمات','data-action="reviews"')+'</div><div class="stack">'+cards+'</div>');
 }
 async function adminUpdate(el){
  if(!T.admin){notice('غير مصرح','warning');return;}
