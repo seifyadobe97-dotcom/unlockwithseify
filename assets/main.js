@@ -85,6 +85,8 @@ async function lessonPage(id){
  if(T.user&&!T.admin&&(sourceExercises||[]).some(x=>x.grading_mode!=='media-awaited')){
    const {data:responses}=await db.from('exercise_responses').select('id,exercise_id,response_text,response_status').eq('student_id',T.user.id).in('exercise_id',(sourceExercises||[]).map(x=>x.id));
    (responses||[]).forEach(x=>answerMap[x.exercise_id]=x);
+   const rid=(responses||[]).filter(x=>x.response_status==='submitted').map(x=>x.id);
+   if(rid.length){const {data:graded}=await db.from('exercise_feedback').select('response_id,score,feedback_ar').in('response_id',rid);const g=Object.fromEntries((graded||[]).map(x=>[x.response_id,x]));for(const x of Object.values(answerMap))x.review=g[x.id]||null;}
  }
  const learningBlocks=Array.isArray(guidance.teaching_blocks)?guidance.teaching_blocks:[];
  const expandedGuide=learningBlocks.length?'<section class="card" style="margin-bottom:15px"><h2>الشرح التفصيلي</h2>'+learningBlocks.map(x=>'<div class="study-block"><h3 class="en">'+esc(x.h||'')+'</h3><p>'+esc(x.ar||'')+'</p>'+(x.en?'<div class="en sample">'+esc(x.en)+'</div>':'')+'</div>').join('')+'<p class="subtle">التوضيحات العربية إضافات تعليمية من المعهد وليست نص Cambridge.</p></section>':'';
@@ -99,7 +101,7 @@ async function lessonPage(id){
   return '<article class="study-block"><div class="row" style="justify-content:space-between"><div><div class="source-ref">PDF '+Number(x.pdf_page)+' · مطبوع '+(Number(x.pdf_page)-2)+' · '+esc(x.activity_label)+'</div><h3 class="en">'+esc(x.source_title)+'</h3></div><span class="tag '+(waiting?'draft':'ok')+'">'+(waiting?'سيتم النشر':'تطبيق مرتبط بالكتاب')+'</span></div><p>'+esc(x.instruction_ar||'راجع القسم المحدد في صفحة الكتاب.')+'</p>'
    +(waiting?'<div class="notice warning">سيتم النشر بمجرد رفع الملف الأصلي واعتماده من لوحة الإدارة.</div>':
    (T.user&&!T.admin?'<textarea class="field textarea" dir="auto" data-exercise-answer="'+x.id+'" maxlength="16000" placeholder="اكتب إجابتك أو ملاحظاتك هنا" '+(disabled?'readonly':'')+'>'+esc(ans?.response_text||'')+'</textarea><div class="row">'+(disabled?badge('submitted'):button('حفظ الإجابة','data-action="save-exercise" data-id="'+x.id+'"')+button('تسليم للمدرس','data-action="submit-exercise" data-id="'+x.id+'"'))+'</div>':'<div class="subtle">معاينة الأدمن: صفحة '+Number(x.pdf_page)+' من النسخة الأصلية · نشاط مفتوح للمراجعة</div>'))
-   +'</article>';
+   +(ans?.review?'<div class="feedback"><strong>مراجعة المدرس'+(ans.review.score!==null?' · '+ans.review.score+'/100':'')+'</strong><p>'+esc(ans.review.feedback_ar)+'</p></div>':'')+'</article>';
  }).join('')||'<div class="empty">لم يُسجل نشاط أصلي لهذا الجزء بعد.</div>')+'</section>';
   const missing=['audio','video'].includes(l.kind);
  frame(l.title,T.book.title+' · Unit '+T.unit.number,crumb(T.book.title,T.unit.title,l.title)+'<div class="row" style="margin-bottom:14px">'+button('رجوع للوحدة','data-action="unit" data-id="'+T.unit.id+'"')+badge(l.status)+'</div>'+(missing?'<div class="notice warning"><h2>سيتم النشر</h2>التسجيل الصوتي أو الفيديو الأصلي الخاص بهذا الجزء سيتم نشره بعد رفعه واعتماده من لوحة الإدارة. تقدر حاليًا تذاكر الشرح والتدريبات النصية، لكن ده مش اختبار Listening أو Watching.</div>':'')+guide+expandedGuide+originalReadings+scriptExtract+sources+'<section class="card"><h2>التدريبات الرقمية المشروحة</h2>'+(question||'<div class="empty">لم تُنشر بعد تدريبات هذا القسم للمستخدم الحالي. المرجع الأصلي محفوظ في المشروع الخاص.</div>')+'</section>'+sourceIndex+vocabularyPanel+workHtml+sourceAlert);
@@ -199,6 +201,40 @@ async function resultsPage(){
  '<div class="card"><h2>مهام تم تسليمها</h2><div class="en title">'+works.filter(x=>x.submission_status==='submitted').length+'</div><p>المسودات المحفوظة: '+works.filter(x=>x.submission_status==='draft').length+'</p></div></div>'+
  '<div class="card" style="margin-top:16px"><h2>معرّف حسابك للتسجيل في الكتاب</h2><p class="en">'+esc(T.user.id)+'</p></div>'+
  '<div class="card" style="margin-top:16px"><h2>أحدث المحاولات</h2><div class="list">'+(attempts.map(x=>'<div class="lesson-card"><span>'+esc(new Date(x.created_at).toLocaleString('ar-EG'))+'</span><span class="tag '+(Number(x.score)===1?'ok':'draft')+'">'+(x.score===null?'بانتظار التصحيح':Number(x.score)===1?'صحيح':'خطأ')+'</span></div>').join('')||'<div class="empty">مفيش محاولات محفوظة لسه.</div>')+'</div></div>');
+}
+
+async function reviewIndexedExercisesPage(){
+ if(!T.admin)return;
+ const {data:answers,error}=await db.from('exercise_responses').select('id,exercise_id,student_id,response_text,updated_at').eq('response_status','submitted').order('updated_at',{ascending:false}).limit(100);
+ if(error){notice(error.message,'warning');return;}
+ const ids=(answers||[]).map(x=>x.id),eids=[...new Set((answers||[]).map(x=>x.exercise_id))];
+ const [{data:feedback},{data:source}]=await Promise.all([
+  ids.length?db.from('exercise_feedback').select('response_id,score,feedback_ar').in('response_id',ids):{data:[]},
+  eids.length?db.from('exercise_registry').select('id,pdf_page,source_title,activity_label').in('id',eids):{data:[]}
+ ]);
+ const byFeedback=Object.fromEntries((feedback||[]).map(x=>[x.response_id,x]));
+ const bySource=Object.fromEntries((source||[]).map(x=>[x.id,x]));
+ const body=(answers||[]).map(x=>{
+  const v=byFeedback[x.id]||{},ex=bySource[x.exercise_id]||{};
+  return '<article class="card"><div class="source-ref">PDF '+esc(ex.pdf_page||'')+' · '+esc(ex.source_title||'')+' · '+esc(ex.activity_label||'')+'</div><div class="subtle">Student: '+esc(x.student_id.slice(0,8))+'...</div><p class="en original-text">'+esc(x.response_text)+'</p><label class="field-label">الدرجة (0 إلى 100 أو فارغة دون درجة)</label><input type="number" min="0" max="100" step=".5" class="field" style="max-width:180px" data-indexed-score="'+x.id+'" value="'+esc(v.score??'')+'"><label class="field-label">تفسير للطالب وملاحظات التحسين</label><textarea class="field textarea" data-indexed-feedback="'+x.id+'" dir="auto">'+esc(v.feedback_ar||'')+'</textarea><button class="button primary" data-action="save-indexed-feedback" data-id="'+x.id+'">حفظ التقييم</button></article>';
+ }).join('');
+ frame('مراجعة تمارين الكتاب','إجابات الطلاب المفتوحة — مكان النشاط والصفحة الأصلية مع الدرجة والملاحظات',
+  '<div class="row">'+button('رجوع للأدمن','data-action="admin"')+'</div><div class="stack" style="margin-top:16px">'+(body||'<div class="empty">لا توجد إجابات تم تسليمها حتى الآن.</div>')+'</div>');
+}
+async function saveIndexedFeedback(id){
+ if(!T.admin||!T.user)return;
+ const scoreEl=document.querySelector('[data-indexed-score="'+id+'"]'),commentEl=document.querySelector('[data-indexed-feedback="'+id+'"]');
+ const score=scoreEl?.value===''?null:Number(scoreEl?.value);
+ const feedback=commentEl?.value?.trim()||'';
+ if(score!==null&&(!Number.isFinite(score)||score<0||score>100)){notice('أدخل درجة من 0 إلى 100','warning');return;}
+ if(!feedback){notice('اكتب للطالب شرحًا واضحًا للمراجعة','warning');return;}
+ const {data:old,error:lookupErr}=await db.from('exercise_feedback').select('response_id').eq('response_id',id).maybeSingle();
+ if(lookupErr){notice(lookupErr.message,'warning');return;}
+ const payload={score,feedback_ar:feedback,reviewed_at:new Date().toISOString()};
+ const {error}=old?await db.from('exercise_feedback').update(payload).eq('response_id',id):
+ await db.from('exercise_feedback').insert({...payload,response_id:id,reviewer_id:T.user.id});
+ if(error){notice('تعذر حفظ المراجعة: '+error.message,'warning');return;}
+ notice('تم حفظ التقييم');await reviewIndexedExercisesPage();
 }
 async function reviewsPage(){
  if(!T.admin)return;
@@ -377,7 +413,7 @@ async function adminUpdate(el){
 document.addEventListener('click',async e=>{
  const el=e.target.closest('button[data-action]');if(!el)return;
  const act=el.dataset.action;
- try{if(act==='home')home();else if(act==='admin')await adminPage();else if(act==='admin-preview-book')await bookPage(el.dataset.id);else if(act==='admin-tab'){T.adminTab=el.dataset.tab;await adminPage();}else if(act==='reviews')await reviewsPage();else if(act==='save-review')await saveReview(el.dataset.id);else if(act==='results')await resultsPage();else if(act==='source-page')await sourcePage(el.dataset.page);else if(act==='save-exercise')await saveIndexedExercise(el.dataset.id,false);else if(act==='submit-exercise')await saveIndexedExercise(el.dataset.id,true);else if(act==='save-work')await saveWork(false);else if(act==='submit-work')await saveWork(true);else if(act==='admin-update')await adminUpdate(el);else if(act==='enroll-student')await enrollStudent();else if(act==='upload-media')await uploadMedia(el.dataset.id);else if(act==='approve-media')await approveMedia(el.dataset.id);else if(act==='upload-sources')await uploadSources();else if(act==='login')authPage();else if(act==='signup')authPage(true);else if(act==='logout'){await db.auth.signOut();await refresh(true)}else if(act==='book')await bookPage(el.dataset.id||T.book?.id);else if(act==='unit')await unitPage(el.dataset.id);else if(act==='lesson')await lessonPage(el.dataset.id);else if(act==='grade')await grade(el.dataset.id,el);}catch(err){notice('خطأ غير متوقع: '+err.message,'warning');}
+ try{if(act==='home')home();else if(act==='admin')await adminPage();else if(act==='admin-preview-book')await bookPage(el.dataset.id);else if(act==='admin-tab'){T.adminTab=el.dataset.tab;await adminPage();}else if(act==='reviews')await reviewsPage();else if(act==='review-exercises')await reviewIndexedExercisesPage();else if(act==='save-indexed-feedback')await saveIndexedFeedback(el.dataset.id);else if(act==='save-review')await saveReview(el.dataset.id);else if(act==='results')await resultsPage();else if(act==='source-page')await sourcePage(el.dataset.page);else if(act==='save-exercise')await saveIndexedExercise(el.dataset.id,false);else if(act==='submit-exercise')await saveIndexedExercise(el.dataset.id,true);else if(act==='save-work')await saveWork(false);else if(act==='submit-work')await saveWork(true);else if(act==='admin-update')await adminUpdate(el);else if(act==='enroll-student')await enrollStudent();else if(act==='upload-media')await uploadMedia(el.dataset.id);else if(act==='approve-media')await approveMedia(el.dataset.id);else if(act==='upload-sources')await uploadSources();else if(act==='login')authPage();else if(act==='signup')authPage(true);else if(act==='logout'){await db.auth.signOut();await refresh(true)}else if(act==='book')await bookPage(el.dataset.id||T.book?.id);else if(act==='unit')await unitPage(el.dataset.id);else if(act==='lesson')await lessonPage(el.dataset.id);else if(act==='grade')await grade(el.dataset.id,el);}catch(err){notice('خطأ غير متوقع: '+err.message,'warning');}
 });
 document.getElementById('nav-home').addEventListener('click',home);
 db.auth.onAuthStateChange((_event,session)=>{if((session?.access_token||null)!==(T.session?.access_token||null)){Promise.resolve().then(()=>refresh(true));}});
