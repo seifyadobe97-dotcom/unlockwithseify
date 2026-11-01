@@ -87,7 +87,7 @@ async function grade(id,el){
  const data=response?await response.json().catch(()=>({})):{};
  const slot=box.querySelector('.feedback-slot');
  if(!response?.ok){slot.innerHTML='<div class="feedback bad">تعذر التصحيح: '+esc(data.error||'تأكد من اكتمال نشر النشاط أو صلاحية حسابك')+'</div>';return;}
- slot.innerHTML='<div class="feedback '+(data.correct?'':'bad')+'"><strong>'+(data.correct?'✓ إجابتك صحيحة':'✕ إجابتك غير صحيحة')+'</strong><p>'+esc(data.explanation?.general||data.explanation?.incorrect||'راجع القاعدة أو النص الأصلي')+'</p>'+(data.correct?'':'<p><strong>الإجابة الصحيحة:</strong> <span class="en">'+esc(data.answer?.index!==undefined?box.querySelectorAll('.choice span')[data.answer.index]?.textContent:data.answer?.text||'')+'</span></p>')+'</div>';
+ slot.innerHTML='<div class="feedback '+(data.correct?'':'bad')+'"><strong>'+(data.correct?'✓ إجابتك صحيحة':'✕ إجابتك غير صحيحة')+'</strong><p>'+esc(data.correct?(data.explanation?.general||'إجابتك صحيحة'):(data.explanation?.wrong?.[String(answer)]||data.explanation?.incorrect||data.explanation?.general||'راجع القاعدة أو النص الأصلي'))+'</p>'+(data.correct?'':'<p><strong>الإجابة الصحيحة:</strong> <span class="en">'+esc(data.answer?.index!==undefined?box.querySelectorAll('.choice span')[data.answer.index]?.textContent:data.answer?.text||'')+'</span></p>')+'</div>';
 }
 
 
@@ -144,7 +144,11 @@ async function saveReview(id){
  const score=input?.value===''?null:Number(input?.value);
  if(score!==null&&(!Number.isFinite(score)||score<0||score>100)){notice('الدرجة من 0 إلى 100','warning');return;}
  if(!ta?.value?.trim()){notice('اكتب ملاحظات مفيدة للطالب','warning');return;}
- const {error}=await db.from('lesson_work_reviews').upsert({work_id:id,reviewer_id:T.user.id,score,feedback_ar:ta.value.trim(),reviewed_at:new Date().toISOString()},{onConflict:'work_id'});
+ const {data:previous,error:lookupError}=await db.from('lesson_work_reviews').select('id').eq('work_id',id).maybeSingle();
+ if(lookupError){notice(lookupError.message,'warning');return;}
+ const {error}=previous
+  ?await db.from('lesson_work_reviews').update({score,feedback_ar:ta.value.trim(),reviewed_at:new Date().toISOString()}).eq('id',previous.id)
+  :await db.from('lesson_work_reviews').insert({work_id:id,reviewer_id:T.user.id,score,feedback_ar:ta.value.trim(),reviewed_at:new Date().toISOString()});
  if(error){notice('تعذر حفظ التقييم: '+error.message,'warning');return;}
  notice('اتحفظ تقييم الطالب');await reviewsPage();
 }
@@ -170,7 +174,7 @@ async function adminPage(){
    +bus.map(u=>{
      const uls=ls.filter(l=>l.unit_id===u.id),vocab=words.filter(w=>w.unit_id===u.id),q=activities.filter(a=>uls.some(l=>l.id===a.lesson_id));
      return '<div style="padding:13px 0;border-top:1px solid var(--line)"><div class="row" style="justify-content:space-between"><strong>Unit '+u.number+' · '+esc(u.title)+'</strong>'+selector('units',u.id,u.status)+'</div><p class="subtle">الأقسام: '+uls.length+' · الأسئلة: '+q.length+' · المفردات: '+vocab.length+'</p>'
-     +uls.map(l=>{const lmedia=media.filter(m=>m.lesson_id===l.id),qm=q.filter(a=>a.lesson_id===l.id);return '<div class="lesson-card" style="margin:7px 0"><div><strong class="en">'+esc(l.title)+'</strong><div class="subtle">'+qm.length+' questions '+(lmedia.length?' · '+lmedia.map(m=>esc(m.kind+':'+(m.original_track||'video')+'='+m.asset_status)).join(', '):'')+'</div></div>'+selector('lessons',l.id,l.status)+'</div>';}).join('')
+     +uls.map(l=>{const lmedia=media.filter(m=>m.lesson_id===l.id),qm=q.filter(a=>a.lesson_id===l.id);return '<div class="lesson-card" style="margin:7px 0"><div><strong class="en">'+esc(l.title)+'</strong><div class="subtle">'+qm.length+' questions '+(lmedia.length?' · '+lmedia.map(m=>esc(m.kind+':'+(m.original_track||'video')+'='+m.asset_status)).join(', '):'')+'</div></div>'+selector('lessons',l.id,l.status)+'</div>'+qm.map(a=>'<div class="lesson-card" style="margin:5px 0 5px 15px"><div><span class="subtle">'+esc(a.source_reference||'Activity')+'</span></div>'+selector('activities',a.id,a.status)+'</div>').join('');}).join('')
      +'</div>';
    }).join('')+'</section>';
  }).join('');
@@ -179,10 +183,19 @@ async function adminPage(){
 async function adminUpdate(el){
  if(!T.admin){notice('غير مصرح','warning');return;}
  const table=el.dataset.table,id=el.dataset.id;
- if(!['books','units','lessons'].includes(table)||!id)return;
+ if(!['books','units','lessons','activities'].includes(table)||!id)return;
  const select=document.querySelector('[data-state-select="'+table+'-'+id+'"]');
  const target=select?.value;if(!['draft','review','published'].includes(target))return;
  if(target==='published'){
+  if(table==='activities'){
+   const {data:activity,error:ae}=await db.from('activities').select('id,lesson_id,kind').eq('id',id).single();
+   if(ae||!activity)return;
+   const {data:lesson}=await db.from('lessons').select('kind').eq('id',activity.lesson_id).single();
+   if(['audio','video'].includes(lesson?.kind)){
+    const {data:assets}=await db.from('media_assets').select('asset_status').eq('lesson_id',activity.lesson_id);
+    if(!(assets||[]).length||(assets||[]).some(x=>x.asset_status!=='approved')){notice('لا يمكن نشر سؤال استماع أو فيديو قبل رفع الميديا واعتمادها. استخدم درس Script Study منفصل.','warning');return;}
+   }
+  }
   if(table==='lessons'){
    const {data:lesson,error:e}=await db.from('lessons').select('id,kind').eq('id',id).single();
    if(e||!lesson)return;
