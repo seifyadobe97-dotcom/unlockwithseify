@@ -1,38 +1,39 @@
 # UNLOCK WITH SEIFY
 
-An independent interactive Cambridge Unlock Level 1 study platform for **two separate books**:
+A separate interactive Unlock 1 learning platform with **two independent books**:
 
-1. **Listening, Speaking & Critical Thinking 1**
-2. **Reading, Writing & Critical Thinking 1**
+- Listening, Speaking & Critical Thinking
+- Reading, Writing & Critical Thinking
 
-## Current deployment status
+**Live preview:** https://seifyadobe97-dotcom.github.io/unlockwithseify/
 
-This repository contains the **student/admin frontend**. Its backend is the separate Supabase project `caumpvsypmkpewdbiedd`. The local full-source teaching prototype and its original page facsimiles are distributed privately as a project ZIP, not committed to this **public** repository.
+## Unit 1 — People (published for enrolled students)
 
-Unit 1 (*People*) is under editorial review. The frontend shows a login and only loads published material for enrolled students; administrators with a server-issued `app_metadata.unlock_role=admin` claim can review drafts. **Do not interpret an empty question list as lost content**: unpublished exercises are intentionally hidden.
+Both Unit 1 books are currently published with **21 sections**, **134 graded practice items**, **52 source-indexed guided activities**, and **41 vocabulary cards** containing the glossary's English definitions, IPA, Arabic meanings and source pages. Original media-dependent activities show **سيتم النشر**, not fake listening/video scores. Other units remain drafts.
 
-## First-run setup
+See [Unit 1 publication report](./UNIT1_STATUS_AR.md) for exact completion limits and QA.
 
-1. Configure a trusted administrator in Supabase Auth through a server-side action (never from browser code).
-2. Enroll the student in the intended book, independent of the other book.
-3. Review the imported lesson questions, separate from their answer keys in `private.activity_keys`.
-4. Change individual activity, lesson, unit, and book publication statuses **after** QA.
-5. Upload licensed source pages/audio/video to private protected storage and issue signed URLs only for authorized users.
-6. Configure GitHub Pages or your hosting provider and later point the intended domain at the host.
+## Administrator workflow
 
-No backend service-role secret is included in this repository.
+1. Log in and refresh your session after your server-side admin role is set.
+2. Open **لوحة الإدارة**. Four tabs: **الدروس والأسئلة، رفع الميديا، الطلاب، تقييم المهام**.
+3. Expand a book, then expand Unit 1; click **معاينة الكتاب كطالب** to open the same educational page layout.
+4. Upload licensed audio/video, then review and approve it; media only appears as true assessment after being uploaded and approved.
+5. Enroll each student independently in the right book.
+6. Review written submissions and indexed open-ended activities separately.
 
-## Assessment
+Learn more in [Admin setup](./ADMIN_SETUP_AR.md).
 
-Objective answers are evaluated by the `grade-activity` edge function, not in frontend JS. Text-based study questions about audio/video scripts **do not count as listening or video assessment**. Writing/speaking require human or rubric-based review.
+## Source fidelity
 
-## Source integrity
+The project owner provided scanned/OCR source books and affirmed all needed usage permissions. To protect licensed scans, **the full source page images are not in the public GitHub repository**. The source page assets can be uploaded from admin to the private `unlock-course-media` bucket; until then, students see precise page references and the transcribed passages available in the platform. The owner also has an offline source-review package containing all Unit 1 pages.
 
-The scanned/OCR copies provided by the course owner are the canonical source. Teacher-authored explanations and practice questions should be distinguished from published book exercises; ambiguous exercises are never force-graded with one answer.
+Indexed tasks are teaching guides and page locators; do not mistake them for a confirmed byte-for-byte digitization of the entire printed book.
 
-## Project safeguards
+## Security
 
-- No changes to the STEP WITH SEIFY app or its Supabase database.
-- Private answer keys and course media.
-- RLS-protected student access and separate enrollments per book.
-- Correct LTR / RTL handling, accessible buttons, mobile-friendly interface.
+Supabase `caumpvsypmkpewdbiedd` is independent of STEP. The frontend uses a publishable key only; private answer keys and grading remain on the server. Students must authenticate and be enrolled. The app uses RLS, protected private media and role-based admin navigation.
+
+## Deploy
+
+The GitHub Pages workflow validates JavaScript and essential assets before publishing from `main`.
