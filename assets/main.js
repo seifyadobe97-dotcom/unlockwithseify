@@ -14,7 +14,7 @@ const badge=s=>'<span class="tag '+(s==="published"?"ok":"draft")+'">'+esc(s)+'<
 const crumb=(...parts)=>'<div class="crumbs">'+parts.map(s=>'<span>'+esc(s)+'</span>').join(' • ')+'</div>';
 const sourceAlert='<div class="notice warning"><strong>تنويه المحتوى:</strong> صفحات الكتاب الكاملة والوسائط مرخصة للمتعلمين المصرح لهم فقط؛ لن تُنشر كصور في مستودع GitHub العام. الأصل محفوظ في الحزمة المحلية، ويُربط بالمنصة عبر تخزين خاص لاحقًا. لا تُعتمد درجة الصوت أو الفيديو قبل رفع الملف الأصلي.</div>';
 function frame(title,subtitle,inner){root.innerHTML='<section class="hero"><span class="eyebrow">UNLOCK LEVEL 1 · WITH SEIFY</span><h1>'+esc(title)+'</h1><p>'+esc(subtitle)+'</p></section>'+inner;}
-function menu(){sessEl.innerHTML=T.user?'<span class="subtle">'+esc(T.user.email)+'</span> '+button('تسجيل الخروج','data-action="logout"'):'<button class="nav-btn" data-action="login">دخول الطلاب</button>';}
+function menu(){sessEl.innerHTML=T.user?'<span class="subtle">'+esc(T.user.email)+'</span> '+(T.admin?button('لوحة الإدارة','data-action="admin"'):'')+button('تسجيل الخروج','data-action="logout"'):'<button class="nav-btn" data-action="login">دخول الطلاب</button>';}
 function home(){
  T.book=T.unit=T.lesson=null; menu();
  const cards=NAMES.map(([slug,title,ico],i)=>{
@@ -80,10 +80,69 @@ async function grade(id,el){
  if(!response?.ok){slot.innerHTML='<div class="feedback bad">تعذر التصحيح: '+esc(data.error||'تأكد من اكتمال نشر النشاط أو صلاحية حسابك')+'</div>';return;}
  slot.innerHTML='<div class="feedback '+(data.correct?'':'bad')+'"><strong>'+(data.correct?'✓ إجابتك صحيحة':'✕ إجابتك غير صحيحة')+'</strong><p>'+esc(data.explanation?.general||data.explanation?.incorrect||'راجع القاعدة أو النص الأصلي')+'</p>'+(data.correct?'':'<p><strong>الإجابة الصحيحة:</strong> <span class="en">'+esc(data.answer?.index!==undefined?box.querySelectorAll('.choice span')[data.answer.index]?.textContent:data.answer?.text||'')+'</span></p>')+'</div>';
 }
+
+async function adminPage(){
+ if(!T.user||!T.admin){notice('هذه الصفحة مخصصة لصلاحية الإدارة الموثقة','warning');return;}
+ const [booksR,unitsR,lessonsR,activitiesR,vocabR,mediaR]=await Promise.all([
+  db.from('books').select('id,title,slug,status,position').order('position'),
+  db.from('units').select('id,book_id,number,title,status').order('book_id').order('number'),
+  db.from('lessons').select('id,unit_id,title,slug,status,position').order('position'),
+  db.from('activities').select('id,lesson_id,status,source_reference'),
+  db.from('vocabulary').select('id,unit_id,status'),
+  db.from('media_assets').select('id,lesson_id,kind,original_track,asset_status')
+ ]);
+ const results=[booksR,unitsR,lessonsR,activitiesR,vocabR,mediaR];
+ if(results.some(x=>x.error)){notice('تعذر فتح لوحة الأدمن: '+(results.find(x=>x.error)?.error?.message||''),'warning');return;}
+ const books=booksR.data||[],units=unitsR.data||[],lessons=lessonsR.data||[],activities=activitiesR.data||[],words=vocabR.data||[],media=mediaR.data||[];
+ const stateOpts=(status)=>['draft','review','published'].map(x=>'<option value="'+x+'" '+(status===x?'selected':'')+'>'+x+'</option>').join('');
+ const selector=(table,id,status,disabled=false)=>'<div class="row"><select class="field" style="width:auto" data-state-select="'+table+'-'+id+'" aria-label="حالة النشر">'+stateOpts(status)+'</select><button type="button" class="button small" data-action="admin-update" data-table="'+table+'" data-id="'+id+'" '+(disabled?'disabled':'')+'>حفظ</button></div>';
+ let cards=books.map(b=>{
+  let bus=units.filter(u=>u.book_id===b.id),ls=lessons.filter(l=>bus.some(u=>u.id===l.unit_id));
+  return '<section class="card"><div class="row" style="justify-content:space-between"><h2 class="en title">'+esc(b.title)+'</h2>'+selector('books',b.id,b.status)+'</div>'
+   +bus.map(u=>{
+     const uls=ls.filter(l=>l.unit_id===u.id),vocab=words.filter(w=>w.unit_id===u.id),q=activities.filter(a=>uls.some(l=>l.id===a.lesson_id));
+     return '<div style="padding:13px 0;border-top:1px solid var(--line)"><div class="row" style="justify-content:space-between"><strong>Unit '+u.number+' · '+esc(u.title)+'</strong>'+selector('units',u.id,u.status)+'</div><p class="subtle">الأقسام: '+uls.length+' · الأسئلة: '+q.length+' · المفردات: '+vocab.length+'</p>'
+     +uls.map(l=>{const lmedia=media.filter(m=>m.lesson_id===l.id),qm=q.filter(a=>a.lesson_id===l.id);return '<div class="lesson-card" style="margin:7px 0"><div><strong class="en">'+esc(l.title)+'</strong><div class="subtle">'+qm.length+' questions '+(lmedia.length?' · '+lmedia.map(m=>esc(m.kind+':'+(m.original_track||'video')+'='+m.asset_status)).join(', '):'')+'</div></div>'+selector('lessons',l.id,l.status)+'</div>';}).join('')
+     +'</div>';
+   }).join('')+'</section>';
+ }).join('');
+ frame('Admin · Content Review','مراجعة حالة نشر الكتب والوحدات والدروس — أي تغيير يُطبَّق بصلاحيات Supabase الآمنة','<div class="notice warning">مسودات الوحدة غير مكتملة. الرفع والنشر مسئولية الإدارة بعد مراجعة كل تمرين وتصحيحه. الميديا المفقودة تمنع نشر دروس المشاهدة والاستماع من هنا.</div><div class="stack">'+cards+'</div>');
+}
+async function adminUpdate(el){
+ if(!T.admin){notice('غير مصرح','warning');return;}
+ const table=el.dataset.table,id=el.dataset.id;
+ if(!['books','units','lessons'].includes(table)||!id)return;
+ const select=document.querySelector('[data-state-select="'+table+'-'+id+'"]');
+ const target=select?.value;if(!['draft','review','published'].includes(target))return;
+ if(target==='published'){
+  if(table==='lessons'){
+   const {data:lesson,error:e}=await db.from('lessons').select('id,kind').eq('id',id).single();
+   if(e||!lesson)return;
+   if(['audio','video'].includes(lesson.kind)){
+    const {data:assets}=await db.from('media_assets').select('id,asset_status').eq('lesson_id',id);
+    if(!(assets||[]).length||(assets||[]).some(m=>m.asset_status!=='approved')){notice('لا يمكن نشر نشاط الميديا قبل اعتماد جميع ملفاته','warning');return;}
+   }
+  }
+  if(table==='units'){
+   const {data:ls}=await db.from('lessons').select('status').eq('unit_id',id);
+   if(!ls?.length||ls.some(x=>x.status!=='published')){notice('لا يمكن نشر الوحدة قبل اعتماد كل أقسامها','warning');return;}
+  }
+  if(table==='books'){
+   const {data:us}=await db.from('units').select('status').eq('book_id',id);
+   if(!us?.length||us.some(x=>x.status!=='published')){notice('لا يمكن نشر الكتاب قبل اعتماد كل وحداته','warning');return;}
+  }
+  if(!confirm('تأكيد نشر المحتوى للطلاب المسجلين؟'))return;
+ }
+ const {error}=await db.from(table).update({status:target}).eq('id',id);
+ if(error){notice('فشل تعديل الحالة: '+error.message,'warning');return;}
+ notice('تم حفظ الحالة: '+target);
+ await adminPage();
+}
+
 document.addEventListener('click',async e=>{
  const el=e.target.closest('button[data-action]');if(!el)return;
  const act=el.dataset.action;
- try{if(act==='home')home();else if(act==='login')authPage();else if(act==='signup')authPage(true);else if(act==='logout'){await db.auth.signOut();await refresh(true)}else if(act==='book')await bookPage(el.dataset.id||T.book?.id);else if(act==='unit')await unitPage(el.dataset.id);else if(act==='lesson')await lessonPage(el.dataset.id);else if(act==='grade')await grade(el.dataset.id,el);}catch(err){notice('خطأ غير متوقع: '+err.message,'warning');}
+ try{if(act==='home')home();else if(act==='admin')await adminPage();else if(act==='admin-update')await adminUpdate(el);else if(act==='login')authPage();else if(act==='signup')authPage(true);else if(act==='logout'){await db.auth.signOut();await refresh(true)}else if(act==='book')await bookPage(el.dataset.id||T.book?.id);else if(act==='unit')await unitPage(el.dataset.id);else if(act==='lesson')await lessonPage(el.dataset.id);else if(act==='grade')await grade(el.dataset.id,el);}catch(err){notice('خطأ غير متوقع: '+err.message,'warning');}
 });
 document.getElementById('nav-home').addEventListener('click',home);
 db.auth.onAuthStateChange((_event,session)=>{if((session?.access_token||null)!==(T.session?.access_token||null)){Promise.resolve().then(()=>refresh(true));}});
