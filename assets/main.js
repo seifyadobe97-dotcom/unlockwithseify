@@ -77,7 +77,8 @@ async function lessonPage(id){
  const guidance=l.content||{};
  const guide='<section class="card" style="margin-bottom:15px"><h2>شرح وتوجيه لغوي</h2><div>'+esc(guidance.teaching_note_ar||'راجع خطوات الدرس والمفردات قبل الحل.')+'</div>'+(Array.isArray(guidance.examples)&&guidance.examples.length?'<div class="en" style="margin-top:12px">'+guidance.examples.map(x=>'<p>'+esc(x)+'</p>').join('')+'</div>':'')+'<div class="subtle">توضيحات تعليمية من إعداد المعهد، منفصلة عن محتوى Cambridge الأصلي.</div></section>';
  const pages=Array.isArray(guidance.source_pages)?guidance.source_pages:[];
- const sources='<section class="card" style="margin-bottom:15px"><h2>صفحات المصدر الأصلي</h2><p>النسخ المصرح بها تُرفع في تخزين خاص. لو الصفحة غير متاحة، فده معناه إنها لسه في مرحلة الرفع.</p><div class="row">'+pages.map(p=>button('PDF '+p,'data-action="source-page" data-page="'+Number(p)+'"')).join('')+'</div><div id="source-availability" aria-live="polite"></div></section>';
+ const supplement=Array.isArray(guidance.supplementary_source_pages)?guidance.supplementary_source_pages:[];
+ const sources='<section class="card" style="margin-bottom:15px"><h2>صفحات المصدر الأصلي</h2><p>شوف رقم صفحة PDF والصفحة المطبوعة. عرض الصورة يتطلب رفعها إلى التخزين الخاص المرخص.</p><div class="row">'+pages.map(p=>button('PDF '+p+' · مطبوع '+(p-2),'data-action="source-page" data-page="'+Number(p)+'"')).join('')+'</div>'+(supplement.length?'<h3>ملحق Pairwork — Student A / B</h3><div class="row">'+supplement.map(p=>button('الملحق PDF '+p+' · مطبوع '+(p-2),'data-action="source-page" data-page="'+Number(p)+'"')).join('')+'</div>':'')+'<div id="source-availability" aria-live="polite"></div></section>';
  const {data:sourceExercises,error:sourceError}=await db.from('exercise_registry').select('id,pdf_page,source_title,activity_label,grading_mode,publish_status,instruction_ar').eq('lesson_id',id).order('pdf_page');
  if(sourceError){notice(sourceError.message,'warning');return;}
  const {data:lessonWords}=await db.from('vocabulary').select('id,term,part_of_speech,meaning_ar,definition_en,pronunciation_ipa,glossary_pdf_page').eq(l.slug==='review'?'unit_id':'lesson_id',l.slug==='review'?T.unit.id:id).order('position');
@@ -348,7 +349,7 @@ async function uploadSources(){
   const match=file.name.match(/^(ls|rw)-(\d{3})\.webp$/i);
   if(!match||match[1].toLowerCase()!==prefix||file.size>8*1024*1024){fail++;continue;}
   const page=Number(match[2]);
-  const validPage=(page>=16&&page<=37)||(book==='listening-speaking'?page===198||page===206||page===207:page===192||page===193||page===206);
+  const validPage=(page>=16&&page<=37)||(book==='listening-speaking'?[194,196,198,206,207].includes(page):[192,193,206].includes(page));
   if(!validPage){fail++;continue;}
   const path=book+'/u1/source/'+file.name.toLowerCase();
   const {error}=await db.storage.from('unlock-course-media').upload(path,file,{upsert:true,contentType:'image/webp'});
