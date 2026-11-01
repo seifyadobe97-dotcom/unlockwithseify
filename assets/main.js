@@ -44,7 +44,7 @@ async function unitPage(unitId){
  const {data:u,error}=await db.from('units').select('id,number,title,status,source_pdf_page').eq('id',unitId).single();
  if(error||!u){notice('الوحدة غير متاحة لهذا الحساب','warning');return;}
  T.unit=u;T.lesson=null;
- const [{data:lessons,error:e1},{data:words,error:e2}]=await Promise.all([db.from('lessons').select('id,slug,title,kind,status,position').eq('unit_id',u.id).order('position'),db.from('vocabulary').select('id,term,part_of_speech,meaning_ar,status').eq('unit_id',u.id).order('position')]);
+ const [{data:lessons,error:e1},{data:words,error:e2}]=await Promise.all([db.from('lessons').select('id,slug,title,kind,status,position,content').eq('unit_id',u.id).order('position'),db.from('vocabulary').select('id,term,part_of_speech,meaning_ar,status').eq('unit_id',u.id).order('position')]);
  if(e1||e2){notice((e1||e2).message,'warning');return;}T.lessons=lessons||[];
  const lessonsHtml=T.lessons.map((l,i)=>'<button class="lesson-card" data-action="lesson" data-id="'+l.id+'"><div class="row"><span class="lesson-num">'+String(i+1).padStart(2,'0')+'</span><div><strong class="en">'+esc(l.title)+'</strong><div class="subtle">'+esc(l.kind)+'</div></div></div>'+badge(l.status)+'</button>').join('');
  const wordHtml=(words||[]).map(w=>'<div class="word"><strong lang="en">'+esc(w.term)+'</strong><div class="subtle">'+esc(w.part_of_speech||'')+'</div><div>'+esc(w.meaning_ar||'تحت المراجعة')+'</div></div>').join('');
@@ -74,8 +74,12 @@ async function lessonPage(id){
   const canGrade=['mcq','true_false','ordering','gap_fill','short_answer'].includes(a.kind);
   return '<article class="quiz" data-question-id="'+a.id+'"><div class="source-ref">QUESTION '+(i+1)+' · '+esc(a.source_reference||'Teacher practice')+'</div><div class="question">'+esc(prompt)+'</div>'+form+(canGrade?'<button class="button primary small" data-action="grade" data-id="'+a.id+'">صحّح الإجابة</button>':'')+'<div class="feedback-slot" role="status"></div></article>';
  }).join('');
+ const guidance=l.content||{};
+ const guide='<section class="card" style="margin-bottom:15px"><h2>شرح وتوجيه لغوي</h2><div>'+esc(guidance.teaching_note_ar||'راجع خطوات الدرس والمفردات قبل الحل.')+'</div>'+(Array.isArray(guidance.examples)&&guidance.examples.length?'<div class="en" style="margin-top:12px">'+guidance.examples.map(x=>'<p>'+esc(x)+'</p>').join('')+'</div>':'')+'<div class="subtle">توضيحات تعليمية من إعداد المعهد، منفصلة عن محتوى Cambridge الأصلي.</div></section>';
+ const pages=Array.isArray(guidance.source_pages)?guidance.source_pages:[];
+ const sources='<section class="card" style="margin-bottom:15px"><h2>صفحات المصدر الأصلي</h2><p>النسخ المصرح بها تُرفع في تخزين خاص. لو الصفحة غير متاحة، فده معناه إنها لسه في مرحلة الرفع.</p><div class="row">'+pages.map(p=>button('PDF '+p,'data-action="source-page" data-page="'+Number(p)+'"')).join('')+'</div><div id="source-availability" aria-live="polite"></div></section>';
  const missing=['audio','video'].includes(l.kind);
- frame(l.title,T.book.title+' · Unit '+T.unit.number,crumb(T.book.title,T.unit.title,l.title)+'<div class="row" style="margin-bottom:14px">'+button('رجوع للوحدة','data-action="unit" data-id="'+T.unit.id+'"')+badge(l.status)+'</div>'+(missing?'<div class="notice warning">الملف الأصلي لم يُرفع بعد؛ أي تدريب على السكريبت هنا يُصنف قراءة نص، وليس Listening أو Watching.</div>':'')+'<section class="card"><h2>التمارين</h2>'+(question||'<div class="empty">لم تُنشر بعد تدريبات هذا القسم للمستخدم الحالي. المرجع الأصلي محفوظ في المشروع الخاص.</div>')+'</section>'+workHtml+sourceAlert);
+ frame(l.title,T.book.title+' · Unit '+T.unit.number,crumb(T.book.title,T.unit.title,l.title)+'<div class="row" style="margin-bottom:14px">'+button('رجوع للوحدة','data-action="unit" data-id="'+T.unit.id+'"')+badge(l.status)+'</div>'+(missing?'<div class="notice warning">الملف الأصلي لم يُرفع بعد؛ أي تدريب على السكريبت هنا يُصنف قراءة نص، وليس Listening أو Watching.</div>':'')+guide+sources+'<section class="card"><h2>التمارين</h2>'+(question||'<div class="empty">لم تُنشر بعد تدريبات هذا القسم للمستخدم الحالي. المرجع الأصلي محفوظ في المشروع الخاص.</div>')+'</section>'+workHtml+sourceAlert);
 }
 async function grade(id,el){
  const box=el.closest('[data-question-id]'),selected=box.querySelector('input[type=radio]:checked'),free=box.querySelector('[data-response]'),answer=free?free.value.trim():selected?Number(selected.value):null;
@@ -90,6 +94,23 @@ async function grade(id,el){
  slot.innerHTML='<div class="feedback '+(data.correct?'':'bad')+'"><strong>'+(data.correct?'✓ إجابتك صحيحة':'✕ إجابتك غير صحيحة')+'</strong><p>'+esc(data.correct?(data.explanation?.general||'إجابتك صحيحة'):(data.explanation?.wrong?.[String(answer)]||data.explanation?.incorrect||data.explanation?.general||'راجع القاعدة أو النص الأصلي'))+'</p>'+(data.correct?'':'<p><strong>الإجابة الصحيحة:</strong> <span class="en">'+esc(data.answer?.index!==undefined?box.querySelectorAll('.choice span')[data.answer.index]?.textContent:data.answer?.text||'')+'</span></p>')+'</div>';
 }
 
+
+
+async function sourcePage(page){
+ if(!T.user||!T.unit||!T.book||!T.session?.access_token){notice('يلزم تسجيل الدخول لعرض المصدر','warning');return;}
+ const prefix=T.book.slug==='listening-speaking'?'ls':'rw';
+ const path=T.book.slug+'/u'+T.unit.number+'/source/'+prefix+'-'+String(page).padStart(3,'0')+'.webp';
+ const response=await fetch(cfg.url+'/functions/v1/get-course-file',{
+  method:'POST',
+  headers:{'Content-Type':'application/json','Authorization':'Bearer '+T.session.access_token,'apikey':cfg.publishableKey},
+  body:JSON.stringify({path})
+ }).catch(()=>null);
+ const data=response?await response.json().catch(()=>({})):{};
+ const holder=document.getElementById('source-availability');
+ if(!holder)return;
+ if(!response?.ok){holder.innerHTML='<div class="notice warning">صفحة '+Number(page)+' لسه مش مرفوعة في التخزين الخاص، أو حسابك غير مصرح له. </div>';return;}
+ holder.innerHTML='<div class="notice"><a href="'+esc(data.url)+'" target="_blank" rel="noopener noreferrer">افتح صفحة المصدر '+Number(page)+' (الرابط مؤقت)</a></div>';
+}
 
 async function saveWork(submit=false){
  if(!T.user||T.admin||!T.lesson){notice('لا يمكن حفظ هذه المسودة','warning');return;}
@@ -224,7 +245,7 @@ async function adminUpdate(el){
 document.addEventListener('click',async e=>{
  const el=e.target.closest('button[data-action]');if(!el)return;
  const act=el.dataset.action;
- try{if(act==='home')home();else if(act==='admin')await adminPage();else if(act==='reviews')await reviewsPage();else if(act==='save-review')await saveReview(el.dataset.id);else if(act==='results')await resultsPage();else if(act==='save-work')await saveWork(false);else if(act==='submit-work')await saveWork(true);else if(act==='admin-update')await adminUpdate(el);else if(act==='login')authPage();else if(act==='signup')authPage(true);else if(act==='logout'){await db.auth.signOut();await refresh(true)}else if(act==='book')await bookPage(el.dataset.id||T.book?.id);else if(act==='unit')await unitPage(el.dataset.id);else if(act==='lesson')await lessonPage(el.dataset.id);else if(act==='grade')await grade(el.dataset.id,el);}catch(err){notice('خطأ غير متوقع: '+err.message,'warning');}
+ try{if(act==='home')home();else if(act==='admin')await adminPage();else if(act==='reviews')await reviewsPage();else if(act==='save-review')await saveReview(el.dataset.id);else if(act==='results')await resultsPage();else if(act==='source-page')await sourcePage(el.dataset.page);else if(act==='save-work')await saveWork(false);else if(act==='submit-work')await saveWork(true);else if(act==='admin-update')await adminUpdate(el);else if(act==='login')authPage();else if(act==='signup')authPage(true);else if(act==='logout'){await db.auth.signOut();await refresh(true)}else if(act==='book')await bookPage(el.dataset.id||T.book?.id);else if(act==='unit')await unitPage(el.dataset.id);else if(act==='lesson')await lessonPage(el.dataset.id);else if(act==='grade')await grade(el.dataset.id,el);}catch(err){notice('خطأ غير متوقع: '+err.message,'warning');}
 });
 document.getElementById('nav-home').addEventListener('click',home);
 db.auth.onAuthStateChange((_event,session)=>{if((session?.access_token||null)!==(T.session?.access_token||null)){Promise.resolve().then(()=>refresh(true));}});
