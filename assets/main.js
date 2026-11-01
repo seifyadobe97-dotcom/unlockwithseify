@@ -78,8 +78,31 @@ async function lessonPage(id){
  const guide='<section class="card" style="margin-bottom:15px"><h2>شرح وتوجيه لغوي</h2><div>'+esc(guidance.teaching_note_ar||'راجع خطوات الدرس والمفردات قبل الحل.')+'</div>'+(Array.isArray(guidance.examples)&&guidance.examples.length?'<div class="en" style="margin-top:12px">'+guidance.examples.map(x=>'<p>'+esc(x)+'</p>').join('')+'</div>':'')+'<div class="subtle">توضيحات تعليمية من إعداد المعهد، منفصلة عن محتوى Cambridge الأصلي.</div></section>';
  const pages=Array.isArray(guidance.source_pages)?guidance.source_pages:[];
  const sources='<section class="card" style="margin-bottom:15px"><h2>صفحات المصدر الأصلي</h2><p>النسخ المصرح بها تُرفع في تخزين خاص. لو الصفحة غير متاحة، فده معناه إنها لسه في مرحلة الرفع.</p><div class="row">'+pages.map(p=>button('PDF '+p,'data-action="source-page" data-page="'+Number(p)+'"')).join('')+'</div><div id="source-availability" aria-live="polite"></div></section>';
- const missing=['audio','video'].includes(l.kind);
- frame(l.title,T.book.title+' · Unit '+T.unit.number,crumb(T.book.title,T.unit.title,l.title)+'<div class="row" style="margin-bottom:14px">'+button('رجوع للوحدة','data-action="unit" data-id="'+T.unit.id+'"')+badge(l.status)+'</div>'+(missing?'<div class="notice warning">الملف الأصلي لم يُرفع بعد؛ أي تدريب على السكريبت هنا يُصنف قراءة نص، وليس Listening أو Watching.</div>':'')+guide+sources+'<section class="card"><h2>التمارين</h2>'+(question||'<div class="empty">لم تُنشر بعد تدريبات هذا القسم للمستخدم الحالي. المرجع الأصلي محفوظ في المشروع الخاص.</div>')+'</section>'+workHtml+sourceAlert);
+ const {data:sourceExercises,error:sourceError}=await db.from('exercise_registry').select('id,pdf_page,source_title,activity_label,grading_mode,publish_status,instruction_ar').eq('lesson_id',id).order('pdf_page');
+ if(sourceError){notice(sourceError.message,'warning');return;}
+ const {data:lessonWords}=await db.from('vocabulary').select('id,term,part_of_speech,meaning_ar').eq('lesson_id',id).order('position');
+ const answerMap={};
+ if(T.user&&!T.admin&&(sourceExercises||[]).some(x=>x.grading_mode!=='media-awaited')){
+   const {data:responses}=await db.from('exercise_responses').select('id,exercise_id,response_text,response_status').eq('student_id',T.user.id).in('exercise_id',(sourceExercises||[]).map(x=>x.id));
+   (responses||[]).forEach(x=>answerMap[x.exercise_id]=x);
+ }
+ const learningBlocks=Array.isArray(guidance.teaching_blocks)?guidance.teaching_blocks:[];
+ const expandedGuide=learningBlocks.length?'<section class="card" style="margin-bottom:15px"><h2>الشرح التفصيلي</h2>'+learningBlocks.map(x=>'<div class="study-block"><h3 class="en">'+esc(x.h||'')+'</h3><p>'+esc(x.ar||'')+'</p>'+(x.en?'<div class="en sample">'+esc(x.en)+'</div>':'')+'</div>').join('')+'<p class="subtle">التوضيحات العربية إضافات تعليمية من المعهد وليست نص Cambridge.</p></section>':'';
+ const readingItems=Array.isArray(guidance.verified_source_readings)?guidance.verified_source_readings:[];
+ const originalReadings=readingItems.length?'<section class="card" style="margin-bottom:15px"><h2>نص القراءة من الكتاب</h2>'+readingItems.map(x=>'<article class="study-block"><div class="source-ref">PDF '+Number(x.page)+' · صفحة الكتاب '+(Number(x.page)-2)+'</div><h3 class="en">'+esc(x.heading||'Reading')+'</h3><div class="en original-text">'+esc(x.text||'')+'</div></article>').join('')+'</section>':'';
+ const scriptExtract=typeof guidance.source_excerpt==='string'&&guidance.source_excerpt?'<section class="card" style="margin-bottom:15px"><h2>Script Study — مقتطفات من النص الأصلي</h2><div class="notice warning">هذا مقتطف متحقق منه، وليس السكريبت الكامل أو امتحان استماع أو مشاهدة.</div><div class="en original-text">'+esc(guidance.source_excerpt)+'</div></section>':'';
+ const vocabularyPanel=(lessonWords||[]).length?'<section class="card" style="margin-top:15px"><h2>قاموس الجزء — Part Vocabulary</h2><div class="vocab">'+lessonWords.map(w=>'<div class="word"><strong class="en">'+esc(w.term)+'</strong><div class="subtle">'+esc(w.part_of_speech||'')+'</div><div>'+esc(w.meaning_ar||'')+'</div></div>').join('')+'</div></section>':'';
+ const sourceIndex='<section class="card" style="margin-top:15px"><h2>تمارين الكتاب حسب الصفحة والجزء</h2><p>كل بطاقة موضح فيها موضع النشاط في الكتاب. بطاقة الشرح والتطبيق الإضافي ليست بديلًا عن النص الأصلي الموجود بالصفحة.</p>'+((sourceExercises||[]).map((x,i)=>{
+  const waiting=x.grading_mode==='media-awaited';
+  const ans=answerMap[x.id];
+  const disabled=ans?.response_status==='submitted';
+  return '<article class="study-block"><div class="row" style="justify-content:space-between"><div><div class="source-ref">PDF '+Number(x.pdf_page)+' · مطبوع '+(Number(x.pdf_page)-2)+' · '+esc(x.activity_label)+'</div><h3 class="en">'+esc(x.source_title)+'</h3></div><span class="tag '+(waiting?'draft':'ok')+'">'+(waiting?'سيتم النشر':'تطبيق مرتبط بالكتاب')+'</span></div><p>'+esc(x.instruction_ar||'راجع القسم المحدد في صفحة الكتاب.')+'</p>'
+   +(waiting?'<div class="notice warning">سيتم النشر بمجرد رفع الملف الأصلي واعتماده من لوحة الإدارة.</div>':
+   (T.user&&!T.admin?'<textarea class="field textarea" dir="auto" data-exercise-answer="'+x.id+'" maxlength="16000" placeholder="اكتب إجابتك أو ملاحظاتك هنا" '+(disabled?'readonly':'')+'>'+esc(ans?.response_text||'')+'</textarea><div class="row">'+(disabled?badge('submitted'):button('حفظ الإجابة','data-action="save-exercise" data-id="'+x.id+'"')+button('تسليم للمدرس','data-action="submit-exercise" data-id="'+x.id+'"'))+'</div>':'<div class="subtle">معاينة الأدمن: صفحة '+Number(x.pdf_page)+' من النسخة الأصلية · نشاط مفتوح للمراجعة</div>'))
+   +'</article>';
+ }).join('')||'<div class="empty">لم يُسجل نشاط أصلي لهذا الجزء بعد.</div>')+'</section>';
+  const missing=['audio','video'].includes(l.kind);
+ frame(l.title,T.book.title+' · Unit '+T.unit.number,crumb(T.book.title,T.unit.title,l.title)+'<div class="row" style="margin-bottom:14px">'+button('رجوع للوحدة','data-action="unit" data-id="'+T.unit.id+'"')+badge(l.status)+'</div>'+(missing?'<div class="notice warning">الملف الأصلي لم يُرفع بعد؛ أي تدريب على السكريبت هنا يُصنف قراءة نص، وليس Listening أو Watching.</div>':'')+guide+expandedGuide+originalReadings+scriptExtract+sources+'<section class="card"><h2>التدريبات الرقمية المشروحة</h2>'+(question||'<div class="empty">لم تُنشر بعد تدريبات هذا القسم للمستخدم الحالي. المرجع الأصلي محفوظ في المشروع الخاص.</div>')+'</section>'+sourceIndex+vocabularyPanel+workHtml+sourceAlert);
 }
 async function grade(id,el){
  const box=el.closest('[data-question-id]'),selected=box.querySelector('input[type=radio]:checked'),free=box.querySelector('[data-response]'),answer=free?free.value.trim():selected?Number(selected.value):null;
