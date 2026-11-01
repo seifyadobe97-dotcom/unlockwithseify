@@ -1,0 +1,91 @@
+/* Unlock With Seify · authenticated frontend. No service key or answer keys in source. */
+(()=>{
+"use strict";
+const cfg=window.UNLOCK_CONFIG,db=window.supabase.createClient(cfg.url,cfg.publishableKey);
+const root=document.getElementById("root"),sessEl=document.getElementById("session-area"),toastEl=document.getElementById("toaster");
+const NAMES=[["listening-speaking","Listening, Speaking & Critical Thinking","🎧"],["reading-writing","Reading, Writing & Critical Thinking","📖"]];
+const TOPICS=["People","Seasons","Lifestyle","Places","Jobs","Homes and Buildings","Food and Culture","Transport"];
+const esc=s=>String(s??"").replace(/[&<>"']/g,x=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[x]));
+const T={session:null,user:null,admin:false,books:[],book:null,unit:null,lesson:null,lessons:[]};
+const $=s=>document.querySelector(s);
+const notice=(msg,type="")=>{toastEl.textContent=msg;toastEl.className="notice "+type;toastEl.style.position="fixed";toastEl.style.bottom="12px";toastEl.style.left="12px";toastEl.style.zIndex="50";clearTimeout(notice.t);notice.t=setTimeout(()=>toastEl.className="hide",4800)};
+const button=(label,attrs="")=>'<button type="button" class="button" '+attrs+'>'+label+'</button>';
+const badge=s=>'<span class="tag '+(s==="published"?"ok":"draft")+'">'+esc(s)+'</span>';
+const crumb=(...parts)=>'<div class="crumbs">'+parts.map(s=>'<span>'+esc(s)+'</span>').join(' • ')+'</div>';
+const sourceAlert='<div class="notice warning"><strong>تنويه المحتوى:</strong> صفحات الكتاب الكاملة والوسائط مرخصة للمتعلمين المصرح لهم فقط؛ لن تُنشر كصور في مستودع GitHub العام. الأصل محفوظ في الحزمة المحلية، ويُربط بالمنصة عبر تخزين خاص لاحقًا. لا تُعتمد درجة الصوت أو الفيديو قبل رفع الملف الأصلي.</div>';
+function frame(title,subtitle,inner){root.innerHTML='<section class="hero"><span class="eyebrow">UNLOCK LEVEL 1 · WITH SEIFY</span><h1>'+esc(title)+'</h1><p>'+esc(subtitle)+'</p></section>'+inner;}
+function menu(){sessEl.innerHTML=T.user?'<span class="subtle">'+esc(T.user.email)+'</span> '+button('تسجيل الخروج','data-action="logout"'):'<button class="nav-btn" data-action="login">دخول الطلاب</button>';}
+function home(){
+ T.book=T.unit=T.lesson=null; menu();
+ const cards=NAMES.map(([slug,title,ico],i)=>{
+ const available=T.books.find(b=>b.slug===slug);
+ const btn=available?'<button type="button" class="button primary" data-action="book" data-id="'+available.id+'">افتح الكتاب</button>':button(T.user?'غير مضاف إلى حسابك':'سجّل الدخول',T.user?'disabled':'data-action="login"');
+ return '<article class="card"><div class="book-ico">'+ico+'</div><div class="eyebrow">BOOK '+(i+1)+'</div><h2 class="en title">'+esc(title)+'</h2><p>ثماني وحدات مستقلة، درجات ومهارات وقاموس خاص بالكتاب.</p>'+btn+'</article>';
+ }).join('');
+ frame('UNLOCK WITH SEIFY','منهج أكاديمي تفاعلي · كتابان مستقلان داخل Unlock 1 · شرح عربي واضح ومحتوى إنجليزي منظم','<section class="cols">'+cards+'</section><section class="card" style="margin-top:18px"><h2>Unit 1 — People</h2><p>جاهزة للمراجعة الأكاديمية: نصوص، تدريبات قواعد ومفردات، مهام قراءة وكتابة، وسكريبتات لحين وصول الميديا.</p><div class="row">'+badge('draft')+'<span class="subtle">الأسئلة والدرجات لا تظهر إلا بعد اعتماد نشرها والتسجيل في الكتاب.</span></div></section>'+(!T.user?'<div class="notice">للدخول إلى وحدتك، استخدم بيانات حساب الطالب. حسابات الإدارة تُمنح بصلاحية خادم مستقلة.</div>':T.books.length===0?'<div class="notice warning">حسابك لم يُسجّل بعد في أي كتاب. اطلب من إدارة المنصة إضافتك إلى الكتاب المطلوب.</div>':''));
+}
+function authPage(signup=false){
+ root.innerHTML='<section class="card auth-card"><h2>'+(signup?'إنشاء حساب الطالب':'تسجيل الدخول')+'</h2><p>حسابك خاص بمنصة Unlock. لا نستخدم حساب STEP تلقائيًا.</p><form id="authform"><label class="field-label" for="auth-email">Email</label><input class="field" id="auth-email" type="email" autocomplete="email" required><label class="field-label" for="auth-pass">Password</label><input class="field" id="auth-pass" type="password" minlength="6" autocomplete="'+(signup?'new-password':'current-password')+'" required><div class="row" style="margin-top:17px"><button class="button primary" type="submit">'+(signup?'إنشاء الحساب':'دخول')+'</button>'+button(signup?'لديك حساب؟ سجّل الدخول':'إنشاء حساب جديد','data-action="'+(signup?'login':'signup')+'"')+'</div><p class="auth-help">تفعيل الحساب لا يعني التسجيل في أي كتاب؛ الإدارة تختار الكتاب وصلاحيات الوصول.</p></form></section>';
+ $('#authform').addEventListener('submit',async e=>{e.preventDefault();const email=$('#auth-email').value.trim(),password=$('#auth-pass').value;const r=signup?await db.auth.signUp({email,password}):await db.auth.signInWithPassword({email,password});if(r.error){notice(r.error.message,'warning');return;}if(signup&&!r.data.session)notice('تم إرسال رسالة تأكيد للبريد الإلكتروني.');await refresh(true);});
+}
+async function refresh(force=false){const {data:{session}}=await db.auth.getSession();T.session=session;T.user=session?.user||null;T.admin=T.user?.app_metadata?.unlock_role==='admin';T.books=[];
+ if(T.user){const {data,error}=await db.from('books').select('id,slug,title,status,position').order('position');if(error)notice('تعذر تحميل الكتب: '+error.message,'warning');else T.books=data||[]}
+ if(force||!T.book)home();
+}
+async function bookPage(bookId){
+ const book=T.books.find(b=>b.id===bookId);if(!book){home();return;}T.book=book;T.unit=T.lesson=null;
+ const {data:units,error}=await db.from('units').select('id,number,title,status,source_pdf_page').eq('book_id',bookId).order('number');
+ if(error){notice(error.message,'warning');return;}
+ const cards=(units||[]).map(u=>'<button class="unit-card" data-action="unit" data-id="'+u.id+'"><span class="num">UNIT '+String(u.number).padStart(2,'0')+'</span><strong class="en">'+esc(u.title)+'</strong>'+badge(u.status)+'</button>').join('');
+ frame(book.title,'منهج مستقل · 8 وحدات · درجات وقاموس خاص بالكتاب',crumb('Unlock 1',book.title)+'<div class="row" style="margin-bottom:15px">'+button('العودة للرئيسية','data-action="home"')+badge(book.status)+'</div><div class="grid8">'+cards+'</div>'+sourceAlert);
+}
+async function unitPage(unitId){
+ if(!T.book){home();return;}
+ const {data:u,error}=await db.from('units').select('id,number,title,status,source_pdf_page').eq('id',unitId).single();
+ if(error||!u){notice('الوحدة غير متاحة لهذا الحساب','warning');return;}
+ T.unit=u;T.lesson=null;
+ const [{data:lessons,error:e1},{data:words,error:e2}]=await Promise.all([db.from('lessons').select('id,slug,title,kind,status,position').eq('unit_id',u.id).order('position'),db.from('vocabulary').select('id,term,part_of_speech,meaning_ar,status').eq('unit_id',u.id).order('position')]);
+ if(e1||e2){notice((e1||e2).message,'warning');return;}T.lessons=lessons||[];
+ const lessonsHtml=T.lessons.map((l,i)=>'<button class="lesson-card" data-action="lesson" data-id="'+l.id+'"><div class="row"><span class="lesson-num">'+String(i+1).padStart(2,'0')+'</span><div><strong class="en">'+esc(l.title)+'</strong><div class="subtle">'+esc(l.kind)+'</div></div></div>'+badge(l.status)+'</button>').join('');
+ const wordHtml=(words||[]).map(w=>'<div class="word"><strong lang="en">'+esc(w.term)+'</strong><div class="subtle">'+esc(w.part_of_speech||'')+'</div><div>'+esc(w.meaning_ar||'تحت المراجعة')+'</div></div>').join('');
+ frame('Unit '+u.number+' — '+u.title,T.book.title,crumb('Unlock 1',T.book.title,'Unit '+u.number)+'<div class="row" style="margin-bottom:18px">'+button('رجوع للكتاب','data-action="book" data-id="'+T.book.id+'"')+badge(u.status)+'</div><section class="cols"><div class="card"><h2>المنهج والدروس</h2><div class="list">'+(lessonsHtml||'<div class="empty">الأقسام قيد التدقيق.</div>')+'</div></div><div class="card"><h2>Unit Dictionary</h2><p>قاموس خاص بالكتاب والوحدة؛ يتوسع تدريجيًا عند مراجعة النص الأصلي.</p><div class="vocab">'+(wordHtml||'<div class="empty">لا توجد كلمات منشورة لهذا الطالب.</div>')+'</div></div></section>'+sourceAlert);
+}
+async function lessonPage(id){
+ if(!T.unit)return;
+ const l=T.lessons.find(x=>x.id===id);if(!l)return;T.lesson=l;
+ const {data:acts,error}=await db.from('activities').select('id,kind,prompt,options,source_reference,position,status').eq('lesson_id',id).order('position');
+ if(error){notice(error.message,'warning');return;}
+ const question=(acts||[]).map((a,i)=>{
+  const prompt=a.prompt?.text||'Question';
+  const options=Array.isArray(a.options)?a.options:[];
+  let form='';
+  if(['mcq','true_false'].includes(a.kind))form='<div class="choices">'+options.map((ch,j)=>'<label class="choice"><input type="radio" name="ans-'+a.id+'" value="'+j+'"><span>'+esc(ch)+'</span></label>').join('')+'</div>';
+  else if(['ordering','gap_fill','short_answer'].includes(a.kind))form='<input class="field" type="text" data-response="'+a.id+'" placeholder="Write your answer" lang="en">';
+  else form='<div class="notice">نشاط مفتوح أو يحتاج مراجعة مدرس، ولا يقبل تصحيحًا آليًا قاطعًا.</div>';
+  const canGrade=['mcq','true_false','ordering','gap_fill','short_answer'].includes(a.kind);
+  return '<article class="quiz" data-question-id="'+a.id+'"><div class="source-ref">QUESTION '+(i+1)+' · '+esc(a.source_reference||'Teacher practice')+'</div><div class="question">'+esc(prompt)+'</div>'+form+(canGrade?'<button class="button primary small" data-action="grade" data-id="'+a.id+'">صحّح الإجابة</button>':'')+'<div class="feedback-slot" role="status"></div></article>';
+ }).join('');
+ const missing=['audio','video'].includes(l.kind);
+ frame(l.title,T.book.title+' · Unit '+T.unit.number,crumb(T.book.title,T.unit.title,l.title)+'<div class="row" style="margin-bottom:14px">'+button('رجوع للوحدة','data-action="unit" data-id="'+T.unit.id+'"')+badge(l.status)+'</div>'+(missing?'<div class="notice warning">الملف الأصلي لم يُرفع بعد؛ أي تدريب على السكريبت هنا يُصنف قراءة نص، وليس Listening أو Watching.</div>':'')+'<section class="card"><h2>التمارين</h2>'+(question||'<div class="empty">لم تُنشر بعد تدريبات هذا القسم للمستخدم الحالي. المرجع الأصلي محفوظ في المشروع الخاص.</div>')+'</section>'+sourceAlert);
+}
+async function grade(id,el){
+ const box=el.closest('[data-question-id]'),selected=box.querySelector('input[type=radio]:checked'),free=box.querySelector('[data-response]'),answer=free?free.value.trim():selected?Number(selected.value):null;
+ if(answer===null||answer===''){notice('اختار أو اكتب إجابتك الأول','warning');return;}
+ if(!T.session?.access_token){notice('سجّل الدخول','warning');return;}
+ el.disabled=true;
+ const response=await fetch(cfg.url+'/functions/v1/grade-activity',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+T.session.access_token,'apikey':cfg.publishableKey},body:JSON.stringify({activityId:id,answer})}).catch(()=>null);
+ el.disabled=false;
+ const data=response?await response.json().catch(()=>({})):{};
+ const slot=box.querySelector('.feedback-slot');
+ if(!response?.ok){slot.innerHTML='<div class="feedback bad">تعذر التصحيح: '+esc(data.error||'تأكد من اكتمال نشر النشاط أو صلاحية حسابك')+'</div>';return;}
+ slot.innerHTML='<div class="feedback '+(data.correct?'':'bad')+'"><strong>'+(data.correct?'✓ إجابتك صحيحة':'✕ إجابتك غير صحيحة')+'</strong><p>'+esc(data.explanation?.general||data.explanation?.incorrect||'راجع القاعدة أو النص الأصلي')+'</p>'+(data.correct?'':'<p><strong>الإجابة الصحيحة:</strong> <span class="en">'+esc(data.answer?.index!==undefined?box.querySelectorAll('.choice span')[data.answer.index]?.textContent:data.answer?.text||'')+'</span></p>')+'</div>';
+}
+document.addEventListener('click',async e=>{
+ const el=e.target.closest('button[data-action]');if(!el)return;
+ const act=el.dataset.action;
+ try{if(act==='home')home();else if(act==='login')authPage();else if(act==='signup')authPage(true);else if(act==='logout'){await db.auth.signOut();await refresh(true)}else if(act==='book')await bookPage(el.dataset.id||T.book?.id);else if(act==='unit')await unitPage(el.dataset.id);else if(act==='lesson')await lessonPage(el.dataset.id);else if(act==='grade')await grade(el.dataset.id,el);}catch(err){notice('خطأ غير متوقع: '+err.message,'warning');}
+});
+document.getElementById('nav-home').addEventListener('click',home);
+db.auth.onAuthStateChange((_event,session)=>{if((session?.access_token||null)!==(T.session?.access_token||null)){Promise.resolve().then(()=>refresh(true));}});
+refresh(true);
+})();
