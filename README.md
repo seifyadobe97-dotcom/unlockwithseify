@@ -9,7 +9,7 @@ A separate interactive Unlock 1 learning platform with **two independent books**
 
 ## Unit 1 — People (published for enrolled students)
 
-Both Unit 1 books are currently published with **21 sections**, **134 graded practice items**, **52 source-indexed guided activities**, and **41 vocabulary cards** containing the glossary's English definitions, IPA, Arabic meanings and source pages. Original media-dependent activities show **سيتم النشر**, not fake listening/video scores. Other units remain drafts.
+Both Unit 1 books are currently published with **21 sections**, **134 graded practice items**, **56 source-indexed guided activities**, and **41 vocabulary cards** containing the glossary's English definitions, IPA, Arabic meanings and source pages. Original media-dependent activities show **سيتم النشر**, not fake listening/video scores. Other units remain drafts.
 
 See [Unit 1 publication report](./UNIT1_STATUS_AR.md) for exact completion limits and QA.
 
