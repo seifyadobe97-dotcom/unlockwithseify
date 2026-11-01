@@ -102,7 +102,7 @@ async function lessonPage(id){
    +'</article>';
  }).join('')||'<div class="empty">لم يُسجل نشاط أصلي لهذا الجزء بعد.</div>')+'</section>';
   const missing=['audio','video'].includes(l.kind);
- frame(l.title,T.book.title+' · Unit '+T.unit.number,crumb(T.book.title,T.unit.title,l.title)+'<div class="row" style="margin-bottom:14px">'+button('رجوع للوحدة','data-action="unit" data-id="'+T.unit.id+'"')+badge(l.status)+'</div>'+(missing?'<div class="notice warning">الملف الأصلي لم يُرفع بعد؛ أي تدريب على السكريبت هنا يُصنف قراءة نص، وليس Listening أو Watching.</div>':'')+guide+expandedGuide+originalReadings+scriptExtract+sources+'<section class="card"><h2>التدريبات الرقمية المشروحة</h2>'+(question||'<div class="empty">لم تُنشر بعد تدريبات هذا القسم للمستخدم الحالي. المرجع الأصلي محفوظ في المشروع الخاص.</div>')+'</section>'+sourceIndex+vocabularyPanel+workHtml+sourceAlert);
+ frame(l.title,T.book.title+' · Unit '+T.unit.number,crumb(T.book.title,T.unit.title,l.title)+'<div class="row" style="margin-bottom:14px">'+button('رجوع للوحدة','data-action="unit" data-id="'+T.unit.id+'"')+badge(l.status)+'</div>'+(missing?'<div class="notice warning"><h2>سيتم النشر</h2>التسجيل الصوتي أو الفيديو الأصلي الخاص بهذا الجزء سيتم نشره بعد رفعه واعتماده من لوحة الإدارة. تقدر حاليًا تذاكر الشرح والتدريبات النصية، لكن ده مش اختبار Listening أو Watching.</div>':'')+guide+expandedGuide+originalReadings+scriptExtract+sources+'<section class="card"><h2>التدريبات الرقمية المشروحة</h2>'+(question||'<div class="empty">لم تُنشر بعد تدريبات هذا القسم للمستخدم الحالي. المرجع الأصلي محفوظ في المشروع الخاص.</div>')+'</section>'+sourceIndex+vocabularyPanel+workHtml+sourceAlert);
 }
 async function grade(id,el){
  const box=el.closest('[data-question-id]'),selected=box.querySelector('input[type=radio]:checked'),free=box.querySelector('[data-response]'),answer=free?free.value.trim():selected?Number(selected.value):null;
@@ -119,6 +119,33 @@ async function grade(id,el){
 
 
 
+
+async function saveIndexedExercise(id,submit=false){
+ if(!T.user||T.admin||!T.lesson){notice('سجل بحساب طالب لحفظ التدريب','warning');return;}
+ const area=document.querySelector('[data-exercise-answer="'+id+'"]');
+ const answer=area?.value?.trim()||'';
+ if(!answer){notice('اكتب إجابتك الأول','warning');return;}
+ if(answer.length>16000){notice('الإجابة أطول من الحد المسموح','warning');return;}
+ const {data:existing,error:lookupError}=await db.from('exercise_responses').select('id,response_status').eq('exercise_id',id).eq('student_id',T.user.id).maybeSingle();
+ if(lookupError){notice(lookupError.message,'warning');return;}
+ if(existing?.response_status==='submitted'){notice('الإجابة دي اتسلّمت بالفعل','warning');return;}
+ if(submit&&!confirm('تأكيد تسليم الإجابة للمراجعة؟ بعد التسليم مش هتقدر تعدّلها.'))return;
+ let err=null;
+ if(existing){
+  ({error:err}=await db.from('exercise_responses').update({response_text:answer,response_status:submit?'submitted':'draft',updated_at:new Date().toISOString()}).eq('id',existing.id));
+ }else{
+  const result=await db.from('exercise_responses').insert({student_id:T.user.id,exercise_id:id,response_text:answer,response_status:'draft'});
+  err=result.error;
+  if(!err&&submit){
+   const lookup=await db.from('exercise_responses').select('id').eq('exercise_id',id).eq('student_id',T.user.id).single();
+   if(lookup.error)err=lookup.error;
+   else ({error:err}=await db.from('exercise_responses').update({response_status:'submitted',updated_at:new Date().toISOString()}).eq('id',lookup.data.id));
+  }
+ }
+ if(err){notice('فشل حفظ الإجابة: '+err.message,'warning');return;}
+ notice(submit?'تم تسليم النشاط للمراجعة':'تم حفظ الإجابة');
+ await lessonPage(T.lesson.id);
+}
 async function sourcePage(page){
  if(!T.user||!T.unit||!T.book||!T.session?.access_token){notice('يلزم تسجيل الدخول لعرض المصدر','warning');return;}
  const prefix=T.book.slug==='listening-speaking'?'ls':'rw';
@@ -342,7 +369,7 @@ async function adminUpdate(el){
 document.addEventListener('click',async e=>{
  const el=e.target.closest('button[data-action]');if(!el)return;
  const act=el.dataset.action;
- try{if(act==='home')home();else if(act==='admin')await adminPage();else if(act==='reviews')await reviewsPage();else if(act==='save-review')await saveReview(el.dataset.id);else if(act==='results')await resultsPage();else if(act==='source-page')await sourcePage(el.dataset.page);else if(act==='save-work')await saveWork(false);else if(act==='submit-work')await saveWork(true);else if(act==='admin-update')await adminUpdate(el);else if(act==='enroll-student')await enrollStudent();else if(act==='upload-media')await uploadMedia(el.dataset.id);else if(act==='approve-media')await approveMedia(el.dataset.id);else if(act==='upload-sources')await uploadSources();else if(act==='login')authPage();else if(act==='signup')authPage(true);else if(act==='logout'){await db.auth.signOut();await refresh(true)}else if(act==='book')await bookPage(el.dataset.id||T.book?.id);else if(act==='unit')await unitPage(el.dataset.id);else if(act==='lesson')await lessonPage(el.dataset.id);else if(act==='grade')await grade(el.dataset.id,el);}catch(err){notice('خطأ غير متوقع: '+err.message,'warning');}
+ try{if(act==='home')home();else if(act==='admin')await adminPage();else if(act==='reviews')await reviewsPage();else if(act==='save-review')await saveReview(el.dataset.id);else if(act==='results')await resultsPage();else if(act==='source-page')await sourcePage(el.dataset.page);else if(act==='save-exercise')await saveIndexedExercise(el.dataset.id,false);else if(act==='submit-exercise')await saveIndexedExercise(el.dataset.id,true);else if(act==='save-work')await saveWork(false);else if(act==='submit-work')await saveWork(true);else if(act==='admin-update')await adminUpdate(el);else if(act==='enroll-student')await enrollStudent();else if(act==='upload-media')await uploadMedia(el.dataset.id);else if(act==='approve-media')await approveMedia(el.dataset.id);else if(act==='upload-sources')await uploadSources();else if(act==='login')authPage();else if(act==='signup')authPage(true);else if(act==='logout'){await db.auth.signOut();await refresh(true)}else if(act==='book')await bookPage(el.dataset.id||T.book?.id);else if(act==='unit')await unitPage(el.dataset.id);else if(act==='lesson')await lessonPage(el.dataset.id);else if(act==='grade')await grade(el.dataset.id,el);}catch(err){notice('خطأ غير متوقع: '+err.message,'warning');}
 });
 document.getElementById('nav-home').addEventListener('click',home);
 db.auth.onAuthStateChange((_event,session)=>{if((session?.access_token||null)!==(T.session?.access_token||null)){Promise.resolve().then(()=>refresh(true));}});
