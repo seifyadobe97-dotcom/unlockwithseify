@@ -174,6 +174,50 @@ async function saveReview(id){
  notice('اتحفظ تقييم الطالب');await reviewsPage();
 }
 
+
+async function uploadMedia(id){
+ if(!T.admin||!T.user)return;
+ const file=document.querySelector('[data-media-file="'+id+'"]')?.files?.[0];
+ if(!file){notice('اختار ملف الصوت أو الفيديو أولًا','warning');return;}
+ if(file.size>100*1024*1024){notice('الملف أكبر من 100 MB، يحتاج تجهيز خاص','warning');return;}
+ const {data:asset,error:findError}=await db.from('media_assets').select('id,kind,lesson_id,original_track,storage_path,asset_status').eq('id',id).single();
+ if(findError||!asset){notice('خانة الميديا غير موجودة','warning');return;}
+ const {data:lesson}=await db.from('lessons').select('id,unit_id').eq('id',asset.lesson_id).single();
+ const {data:unit}=await db.from('units').select('id,number,book_id').eq('id',lesson?.unit_id||'00000000-0000-0000-0000-000000000000').single();
+ const {data:book}=await db.from('books').select('slug').eq('id',unit?.book_id||'00000000-0000-0000-0000-000000000000').single();
+ if(!book||!unit){notice('تعذر العثور على الكتاب والوحدة','warning');return;}
+ const ext=file.name.split('.').pop()?.toLowerCase();
+ const okExt=asset.kind==='audio'?['mp3','m4a','wav','ogg']:['mp4','webm','mov'];
+ if(!okExt.includes(ext)){notice('صيغة الملف غير مدعومة','warning');return;}
+ const name=asset.kind==='audio'?'track-'+String(asset.original_track||'unassigned').replace(/[^a-zA-Z0-9.]/g,'')+'.'+ext:'unit'+unit.number+'.'+ext;
+ const path=book.slug+'/u'+unit.number+'/'+asset.kind+'/'+name;
+ const {error:uploadError}=await db.storage.from('unlock-course-media').upload(path,file,{upsert:true,contentType:file.type||undefined});
+ if(uploadError){notice('فشل رفع الملف: '+uploadError.message,'warning');return;}
+ const {error:updateError}=await db.from('media_assets').update({storage_path:path,asset_status:'uploaded',uploaded_at:new Date().toISOString()}).eq('id',id);
+ if(updateError){notice('الملف وصل، لكن ربطه بالنشاط فشل: '+updateError.message,'warning');return;}
+ notice('تم رفع الملف، وحالته Uploaded لحين المراجعة');await adminPage();
+}
+async function uploadSources(){
+ if(!T.admin)return;
+ const files=[...(document.getElementById('source-files')?.files||[])];
+ const book=document.getElementById('source-book')?.value;
+ if(!['listening-speaking','reading-writing'].includes(book)||!files.length){notice('اختر الكتاب وملفات WEBP','warning');return;}
+ const prefix=book==='listening-speaking'?'ls':'rw';
+ const status=document.getElementById('source-upload-status');let done=0,fail=0;
+ for(const file of files){
+  const match=file.name.match(/^(ls|rw)-(\d{3})\.webp$/i);
+  if(!match||match[1].toLowerCase()!==prefix||file.size>8*1024*1024){fail++;continue;}
+  const page=Number(match[2]);
+  const validPage=(page>=16&&page<=37)||(book==='listening-speaking'?page>=206&&page<=224:page>=206&&page<=208);
+  if(!validPage){fail++;continue;}
+  const path=book+'/u1/source/'+file.name.toLowerCase();
+  const {error}=await db.storage.from('unlock-course-media').upload(path,file,{upsert:true,contentType:'image/webp'});
+  if(error)fail++;else done++;
+  if(status)status.textContent='تم رفع '+done+' صفحة · تعذر '+fail;
+ }
+ notice('تم رفع '+done+' صفحة إلى التخزين الخاص، وتعذر '+fail+' ملف. راجع الأسماء والصيغ.'); 
+}
+
 async function adminPage(){
  if(!T.user||!T.admin){notice('هذه الصفحة مخصصة لصلاحية الإدارة الموثقة','warning');return;}
  const [booksR,unitsR,lessonsR,activitiesR,vocabR,mediaR,registryR]=await Promise.all([
@@ -200,6 +244,12 @@ async function adminPage(){
      +'</div>';
    }).join('')+'</section>';
  }).join('');
+ const mediaCards=media.map(m=>{
+  const lesson=lessons.find(l=>l.id===m.lesson_id),unit=units.find(u=>u.id===lesson?.unit_id),book=books.find(b=>b.id===unit?.book_id);
+  return '<div class="lesson-card"><div><strong>'+esc(book?.title||'')+' · Unit '+esc(unit?.number||'')+'</strong><div class="subtle en">'+esc(m.kind)+' '+esc(m.original_track||'Unit video')+' · '+esc(m.asset_status)+'</div></div><div class="row"><input class="field" style="max-width:225px" type="file" accept="'+(m.kind==='audio'?'.mp3,.m4a,.wav,.ogg':'.mp4,.webm,.mov')+'" data-media-file="'+m.id+'">'+button('رفع الملف','data-action="upload-media" data-id="'+m.id+'"')+'</div></div>';
+ }).join('');
+ const sourceUpload='<section class="card"><h2>رفع صفحات الكتاب الأصلية — Private Storage</h2><p>ارفع ملفات WEBP بأسمائها الأصلية مثل ls-024.webp أو rw-034.webp. الملفات لا تُنشر في GitHub العام.</p><div class="row"><select id="source-book" class="field" style="max-width:280px"><option value="listening-speaking">Listening & Speaking</option><option value="reading-writing">Reading & Writing</option></select><input type="file" class="field" id="source-files" accept=".webp" multiple>'+button('رفع الصفحات','data-action="upload-sources"')+'</div><div id="source-upload-status" class="subtle"></div></section>';
+ const mediaUpload='<section class="card"><h2>ملفات Unit 1 المطلوبة</h2><p>بمجرد رفع الملف يتحول إلى Uploaded؛ بعد مراجعة الجودة يتم اعتماده من لوحة الإدارة.</p><div class="list">'+mediaCards+'</div></section>';
  frame('Admin · Content Review','مراجعة حالة نشر الكتب والوحدات والدروس — أي تغيير يُطبَّق بصلاحيات Supabase الآمنة','<div class="notice warning">مسودات الوحدة غير مكتملة. الرفع والنشر مسئولية الإدارة بعد مراجعة كل تمرين وتصحيحه. الميديا المفقودة تمنع نشر دروس المشاهدة والاستماع من هنا.</div>'+'<div class="row" style="margin:16px 0">'+button('مراجعة التسليمات','data-action="reviews"')+'</div><div class="stack">'+cards+'</div>');
 }
 async function adminUpdate(el){
@@ -245,7 +295,7 @@ async function adminUpdate(el){
 document.addEventListener('click',async e=>{
  const el=e.target.closest('button[data-action]');if(!el)return;
  const act=el.dataset.action;
- try{if(act==='home')home();else if(act==='admin')await adminPage();else if(act==='reviews')await reviewsPage();else if(act==='save-review')await saveReview(el.dataset.id);else if(act==='results')await resultsPage();else if(act==='source-page')await sourcePage(el.dataset.page);else if(act==='save-work')await saveWork(false);else if(act==='submit-work')await saveWork(true);else if(act==='admin-update')await adminUpdate(el);else if(act==='login')authPage();else if(act==='signup')authPage(true);else if(act==='logout'){await db.auth.signOut();await refresh(true)}else if(act==='book')await bookPage(el.dataset.id||T.book?.id);else if(act==='unit')await unitPage(el.dataset.id);else if(act==='lesson')await lessonPage(el.dataset.id);else if(act==='grade')await grade(el.dataset.id,el);}catch(err){notice('خطأ غير متوقع: '+err.message,'warning');}
+ try{if(act==='home')home();else if(act==='admin')await adminPage();else if(act==='reviews')await reviewsPage();else if(act==='save-review')await saveReview(el.dataset.id);else if(act==='results')await resultsPage();else if(act==='source-page')await sourcePage(el.dataset.page);else if(act==='save-work')await saveWork(false);else if(act==='submit-work')await saveWork(true);else if(act==='admin-update')await adminUpdate(el);else if(act==='upload-media')await uploadMedia(el.dataset.id);else if(act==='upload-sources')await uploadSources();else if(act==='login')authPage();else if(act==='signup')authPage(true);else if(act==='logout'){await db.auth.signOut();await refresh(true)}else if(act==='book')await bookPage(el.dataset.id||T.book?.id);else if(act==='unit')await unitPage(el.dataset.id);else if(act==='lesson')await lessonPage(el.dataset.id);else if(act==='grade')await grade(el.dataset.id,el);}catch(err){notice('خطأ غير متوقع: '+err.message,'warning');}
 });
 document.getElementById('nav-home').addEventListener('click',home);
 db.auth.onAuthStateChange((_event,session)=>{if((session?.access_token||null)!==(T.session?.access_token||null)){Promise.resolve().then(()=>refresh(true));}});
