@@ -14,7 +14,7 @@ Each book has its own units, lessons, questions, glossary, submitted work and en
 - **2 Unit 1 records** with status `published`.
 - **21 sections/lessons** published (including two Script Study sections).
 - **134 objective and sentence-ordering questions** published; 134 keys stored in private backend tables. Wrong answers show the correct choice and a linguistic explanation.
-- **52 page-indexed original-exercise groups**, each with a corresponding guided writing/discussion response or a pending-media label. These are indexed teaching activities, not necessarily full verbatim conversions of every original publisher question.
+- **56 page-indexed original-exercise groups**, each with a corresponding guided writing/discussion response or a pending-media label. These are indexed teaching activities, not necessarily full verbatim conversions of every original publisher question.
 - **41 Unit 1 vocabulary entries**: 14 LS + 27 RW, with Arabic meaning, original Cambridge Glossary English definition, IPA, part of speech, and PDF Glossary reference.
 - **4 core Reading passages / blocks** (Chloe Kim profile and article, Sultan Kösen texts A/B), plus **five available script records** (4 LS, 1 RW), with source references.
 - **21 Arabic tutorial sections**, and a unit-level glossary; per-part vocabulary matched to lessons.
@@ -39,3 +39,9 @@ Audio/video files have not been uploaded. Script Study is text reading only and 
 
 **Supabase project:** `caumpvsypmkpewdbiedd` (independent of STEP).
 **Deployed student portal:** https://seifyadobe97-dotcom.github.io/unlockwithseify/
+
+## Pairwork supplement (important)
+
+The teacher-owned Unit 1 source-reader package also includes the supplementary **Student A / Student B** pages from the Listening & Speaking volume: printed pp. 192 and 194 (PDF pp. 194 and 196). The four linked exercises cover Listening 2 Exercise 9 and Preparation for Speaking Exercise 2, bringing the total to **56** source-indexed groups.
+
+A separate offline source review ZIP includes all Unit 1 page facsimiles (PDF 16–37 per book), Unit 1 video/audio script source pages, Glossary pages and this pairwork supplement. Original scans remain outside the public GitHub repository.
