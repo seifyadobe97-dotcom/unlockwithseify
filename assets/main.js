@@ -197,6 +197,17 @@ async function uploadMedia(id){
  if(updateError){notice('الملف وصل، لكن ربطه بالنشاط فشل: '+updateError.message,'warning');return;}
  notice('تم رفع الملف، وحالته Uploaded لحين المراجعة');await adminPage();
 }
+
+async function approveMedia(id){
+ if(!T.admin||!T.user)return;
+ const {data:asset,error}=await db.from('media_assets').select('id,storage_path,asset_status').eq('id',id).single();
+ if(error||!asset?.storage_path){notice('ارفع الملف أولًا قبل اعتماده','warning');return;}
+ if(!confirm('هل تم الاستماع/المشاهدة والتحقق من الملف وربطه بالدرس الصحيح؟'))return;
+ const {error:upd}=await db.from('media_assets').update({asset_status:'approved'}).eq('id',id);
+ if(upd){notice('تعذر اعتماد الملف: '+upd.message,'warning');return;}
+ notice('تم اعتماد الملف. يمكنك الآن مراجعة نشر الدرس.');await adminPage();
+}
+
 async function uploadSources(){
  if(!T.admin)return;
  const files=[...(document.getElementById('source-files')?.files||[])];
@@ -226,7 +237,7 @@ async function adminPage(){
   db.from('lessons').select('id,unit_id,title,slug,status,position').order('position'),
   db.from('activities').select('id,lesson_id,status,source_reference'),
   db.from('vocabulary').select('id,unit_id,status'),
-  db.from('media_assets').select('id,lesson_id,kind,original_track,asset_status'),
+  db.from('media_assets').select('id,lesson_id,kind,original_track,asset_status,storage_path'),
   db.from('exercise_registry').select('id,lesson_id,pdf_page,source_title,activity_label,grading_mode,conversion_status').order('pdf_page')
  ]);
  const results=[booksR,unitsR,lessonsR,activitiesR,vocabR,mediaR,registryR];
@@ -246,7 +257,7 @@ async function adminPage(){
  }).join('');
  const mediaCards=media.map(m=>{
   const lesson=lessons.find(l=>l.id===m.lesson_id),unit=units.find(u=>u.id===lesson?.unit_id),book=books.find(b=>b.id===unit?.book_id);
-  return '<div class="lesson-card"><div><strong>'+esc(book?.title||'')+' · Unit '+esc(unit?.number||'')+'</strong><div class="subtle en">'+esc(m.kind)+' '+esc(m.original_track||'Unit video')+' · '+esc(m.asset_status)+'</div></div><div class="row"><input class="field" style="max-width:225px" type="file" accept="'+(m.kind==='audio'?'.mp3,.m4a,.wav,.ogg':'.mp4,.webm,.mov')+'" data-media-file="'+m.id+'">'+button('رفع الملف','data-action="upload-media" data-id="'+m.id+'"')+'</div></div>';
+  return '<div class="lesson-card"><div><strong>'+esc(book?.title||'')+' · Unit '+esc(unit?.number||'')+'</strong><div class="subtle en">'+esc(m.kind)+' '+esc(m.original_track||'Unit video')+' · '+esc(m.asset_status)+'</div></div><div class="row"><input class="field" style="max-width:225px" type="file" accept="'+(m.kind==='audio'?'.mp3,.m4a,.wav,.ogg':'.mp4,.webm,.mov')+'" data-media-file="'+m.id+'">'+button('رفع الملف','data-action="upload-media" data-id="'+m.id+'"')+(m.storage_path?button('اعتماد الملف','data-action="approve-media" data-id="'+m.id+'"'):'')+'</div></div>';
  }).join('');
  const sourceUpload='<section class="card"><h2>رفع صفحات الكتاب الأصلية — Private Storage</h2><p>ارفع ملفات WEBP بأسمائها الأصلية مثل ls-024.webp أو rw-034.webp. الملفات لا تُنشر في GitHub العام.</p><div class="row"><select id="source-book" class="field" style="max-width:280px"><option value="listening-speaking">Listening & Speaking</option><option value="reading-writing">Reading & Writing</option></select><input type="file" class="field" id="source-files" accept=".webp" multiple>'+button('رفع الصفحات','data-action="upload-sources"')+'</div><div id="source-upload-status" class="subtle"></div></section>';
  const mediaUpload='<section class="card"><h2>ملفات Unit 1 المطلوبة</h2><p>بمجرد رفع الملف يتحول إلى Uploaded؛ بعد مراجعة الجودة يتم اعتماده من لوحة الإدارة.</p><div class="list">'+mediaCards+'</div></section>';
@@ -295,7 +306,7 @@ async function adminUpdate(el){
 document.addEventListener('click',async e=>{
  const el=e.target.closest('button[data-action]');if(!el)return;
  const act=el.dataset.action;
- try{if(act==='home')home();else if(act==='admin')await adminPage();else if(act==='reviews')await reviewsPage();else if(act==='save-review')await saveReview(el.dataset.id);else if(act==='results')await resultsPage();else if(act==='source-page')await sourcePage(el.dataset.page);else if(act==='save-work')await saveWork(false);else if(act==='submit-work')await saveWork(true);else if(act==='admin-update')await adminUpdate(el);else if(act==='upload-media')await uploadMedia(el.dataset.id);else if(act==='upload-sources')await uploadSources();else if(act==='login')authPage();else if(act==='signup')authPage(true);else if(act==='logout'){await db.auth.signOut();await refresh(true)}else if(act==='book')await bookPage(el.dataset.id||T.book?.id);else if(act==='unit')await unitPage(el.dataset.id);else if(act==='lesson')await lessonPage(el.dataset.id);else if(act==='grade')await grade(el.dataset.id,el);}catch(err){notice('خطأ غير متوقع: '+err.message,'warning');}
+ try{if(act==='home')home();else if(act==='admin')await adminPage();else if(act==='reviews')await reviewsPage();else if(act==='save-review')await saveReview(el.dataset.id);else if(act==='results')await resultsPage();else if(act==='source-page')await sourcePage(el.dataset.page);else if(act==='save-work')await saveWork(false);else if(act==='submit-work')await saveWork(true);else if(act==='admin-update')await adminUpdate(el);else if(act==='upload-media')await uploadMedia(el.dataset.id);else if(act==='approve-media')await approveMedia(el.dataset.id);else if(act==='upload-sources')await uploadSources();else if(act==='login')authPage();else if(act==='signup')authPage(true);else if(act==='logout'){await db.auth.signOut();await refresh(true)}else if(act==='book')await bookPage(el.dataset.id||T.book?.id);else if(act==='unit')await unitPage(el.dataset.id);else if(act==='lesson')await lessonPage(el.dataset.id);else if(act==='grade')await grade(el.dataset.id,el);}catch(err){notice('خطأ غير متوقع: '+err.message,'warning');}
 });
 document.getElementById('nav-home').addEventListener('click',home);
 db.auth.onAuthStateChange((_event,session)=>{if((session?.access_token||null)!==(T.session?.access_token||null)){Promise.resolve().then(()=>refresh(true));}});
