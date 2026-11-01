@@ -14,7 +14,7 @@ const badge=s=>'<span class="tag '+(s==="published"?"ok":"draft")+'">'+esc(s)+'<
 const crumb=(...parts)=>'<div class="crumbs">'+parts.map(s=>'<span>'+esc(s)+'</span>').join(' • ')+'</div>';
 const sourceAlert='<div class="notice warning"><strong>تنويه المحتوى:</strong> صفحات الكتاب الكاملة والوسائط مرخصة للمتعلمين المصرح لهم فقط؛ لن تُنشر كصور في مستودع GitHub العام. الأصل محفوظ في الحزمة المحلية، ويُربط بالمنصة عبر تخزين خاص لاحقًا. لا تُعتمد درجة الصوت أو الفيديو قبل رفع الملف الأصلي.</div>';
 function frame(title,subtitle,inner){root.innerHTML='<section class="hero"><span class="eyebrow">UNLOCK LEVEL 1 · WITH SEIFY</span><h1>'+esc(title)+'</h1><p>'+esc(subtitle)+'</p></section>'+inner;}
-function menu(){sessEl.innerHTML=T.user?'<span class="subtle">'+esc(T.user.email)+'</span> '+(T.admin?button('لوحة الإدارة','data-action="admin"'):'')+button('تسجيل الخروج','data-action="logout"'):'<button class="nav-btn" data-action="login">دخول الطلاب</button>';}
+function menu(){sessEl.innerHTML=T.user?'<span class="subtle">'+esc(T.user.email)+'</span> '+(T.admin?button('لوحة الإدارة','data-action="admin"'):'':button('درجاتي','data-action="results"'))+button('تسجيل الخروج','data-action="logout"'):'<button class="nav-btn" data-action="login">دخول الطلاب</button>';}
 function home(){
  T.book=T.unit=T.lesson=null; menu();
  const cards=NAMES.map(([slug,title,ico],i)=>{
@@ -55,6 +55,15 @@ async function lessonPage(id){
  const l=T.lessons.find(x=>x.id===id);if(!l)return;T.lesson=l;
  const {data:acts,error}=await db.from('activities').select('id,kind,prompt,options,source_reference,position,status').eq('lesson_id',id).order('position');
  if(error){notice(error.message,'warning');return;}
+ let learnerWork=null,review=null;
+ if(T.user&&!T.admin&&['writing','speaking','critical_thinking','reading'].includes(l.kind)){
+  const {data:work}=await db.from('lesson_work').select('id,body,submission_status,updated_at').eq('lesson_id',l.id).eq('student_id',T.user.id).maybeSingle();
+  learnerWork=work;
+  if(work){const {data:r}=await db.from('lesson_work_reviews').select('score,feedback_ar,reviewed_at').eq('work_id',work.id).maybeSingle();review=r;}
+ }
+ const workHtml=(T.user&&!T.admin&&['writing','speaking','critical_thinking','reading'].includes(l.kind)&&l.status==='published')
+  ?'<section class="card" style="margin-top:15px"><h2>دفتر التطبيق والتسليم</h2><p>اكتب إجابتك أو ملاحظات العرض. احفظها كمسودة، ثم سلّمها للمدرس لما تخلص.</p><textarea class="field textarea" id="lesson-work" dir="auto" maxlength="20000" '+(learnerWork?.submission_status==='submitted'?'readonly':'')+'>'+esc(learnerWork?.body||'')+'</textarea><div class="row" style="margin-top:12px">'+(learnerWork?.submission_status==='submitted'?badge('submitted'):button('حفظ المسودة','data-action="save-work"')+button('تسليم للمراجعة','data-action="submit-work"'))+'</div>'+(review?'<div class="feedback"><strong>مراجعة المدرس · '+esc(review.score??'بدون درجة')+'/100</strong><p>'+esc(review.feedback_ar||'')+'</p></div>':learnerWork?.submission_status==='submitted'?'<div class="notice">تم التسليم، بانتظار مراجعة المدرس.</div>':'')+'</section>'
+  :'';
  const question=(acts||[]).map((a,i)=>{
   const prompt=a.prompt?.text||'Question';
   const options=Array.isArray(a.options)?a.options:[];
@@ -66,7 +75,7 @@ async function lessonPage(id){
   return '<article class="quiz" data-question-id="'+a.id+'"><div class="source-ref">QUESTION '+(i+1)+' · '+esc(a.source_reference||'Teacher practice')+'</div><div class="question">'+esc(prompt)+'</div>'+form+(canGrade?'<button class="button primary small" data-action="grade" data-id="'+a.id+'">صحّح الإجابة</button>':'')+'<div class="feedback-slot" role="status"></div></article>';
  }).join('');
  const missing=['audio','video'].includes(l.kind);
- frame(l.title,T.book.title+' · Unit '+T.unit.number,crumb(T.book.title,T.unit.title,l.title)+'<div class="row" style="margin-bottom:14px">'+button('رجوع للوحدة','data-action="unit" data-id="'+T.unit.id+'"')+badge(l.status)+'</div>'+(missing?'<div class="notice warning">الملف الأصلي لم يُرفع بعد؛ أي تدريب على السكريبت هنا يُصنف قراءة نص، وليس Listening أو Watching.</div>':'')+'<section class="card"><h2>التمارين</h2>'+(question||'<div class="empty">لم تُنشر بعد تدريبات هذا القسم للمستخدم الحالي. المرجع الأصلي محفوظ في المشروع الخاص.</div>')+'</section>'+sourceAlert);
+ frame(l.title,T.book.title+' · Unit '+T.unit.number,crumb(T.book.title,T.unit.title,l.title)+'<div class="row" style="margin-bottom:14px">'+button('رجوع للوحدة','data-action="unit" data-id="'+T.unit.id+'"')+badge(l.status)+'</div>'+(missing?'<div class="notice warning">الملف الأصلي لم يُرفع بعد؛ أي تدريب على السكريبت هنا يُصنف قراءة نص، وليس Listening أو Watching.</div>':'')+'<section class="card"><h2>التمارين</h2>'+(question||'<div class="empty">لم تُنشر بعد تدريبات هذا القسم للمستخدم الحالي. المرجع الأصلي محفوظ في المشروع الخاص.</div>')+'</section>'+workHtml+sourceAlert);
 }
 async function grade(id,el){
  const box=el.closest('[data-question-id]'),selected=box.querySelector('input[type=radio]:checked'),free=box.querySelector('[data-response]'),answer=free?free.value.trim():selected?Number(selected.value):null;
@@ -79,6 +88,65 @@ async function grade(id,el){
  const slot=box.querySelector('.feedback-slot');
  if(!response?.ok){slot.innerHTML='<div class="feedback bad">تعذر التصحيح: '+esc(data.error||'تأكد من اكتمال نشر النشاط أو صلاحية حسابك')+'</div>';return;}
  slot.innerHTML='<div class="feedback '+(data.correct?'':'bad')+'"><strong>'+(data.correct?'✓ إجابتك صحيحة':'✕ إجابتك غير صحيحة')+'</strong><p>'+esc(data.explanation?.general||data.explanation?.incorrect||'راجع القاعدة أو النص الأصلي')+'</p>'+(data.correct?'':'<p><strong>الإجابة الصحيحة:</strong> <span class="en">'+esc(data.answer?.index!==undefined?box.querySelectorAll('.choice span')[data.answer.index]?.textContent:data.answer?.text||'')+'</span></p>')+'</div>';
+}
+
+
+async function saveWork(submit=false){
+ if(!T.user||T.admin||!T.lesson){notice('لا يمكن حفظ هذه المسودة','warning');return;}
+ const body=document.getElementById('lesson-work')?.value?.trim()||'';
+ if(!body){notice('اكتب إجابتك قبل الحفظ','warning');return;}
+ if(body.length>20000){notice('النص طويل جدًا','warning');return;}
+ const {data:existing,error:readErr}=await db.from('lesson_work').select('id,submission_status').eq('lesson_id',T.lesson.id).eq('student_id',T.user.id).maybeSingle();
+ if(readErr){notice(readErr.message,'warning');return;}
+ if(existing?.submission_status==='submitted'){notice('الإجابة مسلّمة بالفعل ولا يمكن تعديلها','warning');return;}
+ if(submit&&!confirm('هل تريد تسليم هذه الإجابة للمدرس؟ لن تستطيع تعديلها بعد التسليم.'))return;
+ let error;
+ if(existing?.id){({error}=await db.from('lesson_work').update({body,submission_status:submit?'submitted':'draft',updated_at:new Date().toISOString()}).eq('id',existing.id));}
+ else {
+  const r=await db.from('lesson_work').insert({lesson_id:T.lesson.id,student_id:T.user.id,body,submission_status:'draft'});
+  error=r.error;
+  if(!error&&submit){
+   const row=await db.from('lesson_work').select('id').eq('lesson_id',T.lesson.id).eq('student_id',T.user.id).single();
+   if(row.error)error=row.error;
+   else ({error}=await db.from('lesson_work').update({submission_status:'submitted',updated_at:new Date().toISOString()}).eq('id',row.data.id));
+  }
+ }
+ if(error){notice('لم يُحفظ العمل: '+error.message,'warning');return;}
+ notice(submit?'تم تسليم الإجابة للمدرس':'تم حفظ المسودة في حساب الطالب');
+ await lessonPage(T.lesson.id);
+}
+async function resultsPage(){
+ if(!T.user||T.admin){home();return;}
+ const [a,w]=await Promise.all([
+  db.from('attempts').select('id,score,created_at').eq('student_id',T.user.id).order('created_at',{ascending:false}).limit(100),
+  db.from('lesson_work').select('id,submission_status,updated_at').eq('student_id',T.user.id).order('updated_at',{ascending:false}).limit(100)
+ ]);
+ if(a.error||w.error){notice((a.error||w.error).message,'warning');return;}
+ const attempts=a.data||[],works=w.data||[],graded=attempts.filter(x=>x.score!==null&&x.score!==undefined);
+ frame('نتائجك وتقدمك','درجات الأسئلة المعتمدة من خادم التصحيح · مسودات الكتابة والتحدث والمراجعة',
+ '<div class="cols"><div class="card"><h2>أسئلة تم تصحيحها</h2><div class="en title">'+graded.length+'</div><p>الصحيح: '+graded.filter(x=>Number(x.score)===1).length+'</p></div>'+
+ '<div class="card"><h2>مهام تم تسليمها</h2><div class="en title">'+works.filter(x=>x.submission_status==='submitted').length+'</div><p>المسودات المحفوظة: '+works.filter(x=>x.submission_status==='draft').length+'</p></div></div>'+
+ '<div class="card" style="margin-top:16px"><h2>أحدث المحاولات</h2><div class="list">'+(attempts.map(x=>'<div class="lesson-card"><span>'+esc(new Date(x.created_at).toLocaleString('ar-EG'))+'</span><span class="tag '+(Number(x.score)===1?'ok':'draft')+'">'+(x.score===null?'بانتظار التصحيح':Number(x.score)===1?'صحيح':'خطأ')+'</span></div>').join('')||'<div class="empty">مفيش محاولات محفوظة لسه.</div>')+'</div></div>');
+}
+async function reviewsPage(){
+ if(!T.admin)return;
+ const {data:works,error}=await db.from('lesson_work').select('id,student_id,lesson_id,body,submission_status,updated_at').eq('submission_status','submitted').order('updated_at',{ascending:false}).limit(100);
+ if(error){notice(error.message,'warning');return;}
+ const ids=(works||[]).map(x=>x.id);
+ const {data:reviews}=ids.length?await db.from('lesson_work_reviews').select('work_id,score,feedback_ar').in('work_id',ids):{data:[]};
+ const byId=Object.fromEntries((reviews||[]).map(x=>[x.work_id,x]));
+ frame('مراجعة أعمال الطلاب','Speaking · Writing · Critical Thinking — الدرجة لا تعتمد آليًا دون تقييم المدرس',
+ '<div class="row" style="margin-bottom:14px">'+button('رجوع للإدارة','data-action="admin"')+'</div><div class="stack">'+((works||[]).map(x=>{const v=byId[x.id]||{};return '<article class="card"><div class="subtle">Student ID: '+esc(x.student_id.slice(0,8))+'… · Lesson: '+esc(x.lesson_id.slice(0,8))+'…</div><div class="en" style="white-space:pre-wrap;margin:12px 0">'+esc(x.body)+'</div><label class="field-label">الدرجة من 100</label><input class="field" style="max-width:160px" type="number" min="0" max="100" step=".5" data-review-score="'+x.id+'" value="'+esc(v.score??'')+'"><label class="field-label">التعليق اللغوي والتربوي</label><textarea class="field textarea" dir="auto" data-review-feedback="'+x.id+'">'+esc(v.feedback_ar??'')+'</textarea><button class="button primary" data-action="save-review" data-id="'+x.id+'">حفظ التقييم</button></article>'}).join('')||'<div class="empty">لا توجد مهام تم تسليمها حتى الآن.</div>')+'</div>');
+}
+async function saveReview(id){
+ if(!T.user||!T.admin)return;
+ const input=document.querySelector('[data-review-score="'+id+'"]'),ta=document.querySelector('[data-review-feedback="'+id+'"]');
+ const score=input?.value===''?null:Number(input?.value);
+ if(score!==null&&(!Number.isFinite(score)||score<0||score>100)){notice('الدرجة من 0 إلى 100','warning');return;}
+ if(!ta?.value?.trim()){notice('اكتب ملاحظات مفيدة للطالب','warning');return;}
+ const {error}=await db.from('lesson_work_reviews').upsert({work_id:id,reviewer_id:T.user.id,score,feedback_ar:ta.value.trim(),reviewed_at:new Date().toISOString()},{onConflict:'work_id'});
+ if(error){notice('تعذر حفظ التقييم: '+error.message,'warning');return;}
+ notice('اتحفظ تقييم الطالب');await reviewsPage();
 }
 
 async function adminPage(){
@@ -106,7 +174,7 @@ async function adminPage(){
      +'</div>';
    }).join('')+'</section>';
  }).join('');
- frame('Admin · Content Review','مراجعة حالة نشر الكتب والوحدات والدروس — أي تغيير يُطبَّق بصلاحيات Supabase الآمنة','<div class="notice warning">مسودات الوحدة غير مكتملة. الرفع والنشر مسئولية الإدارة بعد مراجعة كل تمرين وتصحيحه. الميديا المفقودة تمنع نشر دروس المشاهدة والاستماع من هنا.</div><div class="stack">'+cards+'</div>');
+ frame('Admin · Content Review','مراجعة حالة نشر الكتب والوحدات والدروس — أي تغيير يُطبَّق بصلاحيات Supabase الآمنة','<div class="notice warning">مسودات الوحدة غير مكتملة. الرفع والنشر مسئولية الإدارة بعد مراجعة كل تمرين وتصحيحه. الميديا المفقودة تمنع نشر دروس المشاهدة والاستماع من هنا.</div>'<div class="row" style="margin:16px 0">'+button('مراجعة التسليمات','data-action="reviews"')+'</div><div class="stack">'+cards+'</div>');
 }
 async function adminUpdate(el){
  if(!T.admin){notice('غير مصرح','warning');return;}
@@ -142,7 +210,7 @@ async function adminUpdate(el){
 document.addEventListener('click',async e=>{
  const el=e.target.closest('button[data-action]');if(!el)return;
  const act=el.dataset.action;
- try{if(act==='home')home();else if(act==='admin')await adminPage();else if(act==='admin-update')await adminUpdate(el);else if(act==='login')authPage();else if(act==='signup')authPage(true);else if(act==='logout'){await db.auth.signOut();await refresh(true)}else if(act==='book')await bookPage(el.dataset.id||T.book?.id);else if(act==='unit')await unitPage(el.dataset.id);else if(act==='lesson')await lessonPage(el.dataset.id);else if(act==='grade')await grade(el.dataset.id,el);}catch(err){notice('خطأ غير متوقع: '+err.message,'warning');}
+ try{if(act==='home')home();else if(act==='admin')await adminPage();else if(act==='reviews')await reviewsPage();else if(act==='save-review')await saveReview(el.dataset.id);else if(act==='results')await resultsPage();else if(act==='save-work')await saveWork(false);else if(act==='submit-work')await saveWork(true);else if(act==='admin-update')await adminUpdate(el);else if(act==='login')authPage();else if(act==='signup')authPage(true);else if(act==='logout'){await db.auth.signOut();await refresh(true)}else if(act==='book')await bookPage(el.dataset.id||T.book?.id);else if(act==='unit')await unitPage(el.dataset.id);else if(act==='lesson')await lessonPage(el.dataset.id);else if(act==='grade')await grade(el.dataset.id,el);}catch(err){notice('خطأ غير متوقع: '+err.message,'warning');}
 });
 document.getElementById('nav-home').addEventListener('click',home);
 db.auth.onAuthStateChange((_event,session)=>{if((session?.access_token||null)!==(T.session?.access_token||null)){Promise.resolve().then(()=>refresh(true));}});
