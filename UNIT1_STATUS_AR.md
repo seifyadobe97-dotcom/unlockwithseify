@@ -1,28 +1,41 @@
-# UNLOCK WITH SEIFY — تقرير Unit 1 (People)
+# UNLOCK WITH SEIFY — Unit 1 People | LIVE CONTENT STATUS
 
-**تاريخ التحديث:** 1 نوفمبر 2026
+**Last updated:** 2026-11-01
 
-## المنفذ فعليًا
+## Two fully separate books
 
-- الكتابان مستقلان تمامًا داخل Unlock 1، لكل كتاب 8 وحدات.
-- Unit 1 تضم 21 قسمًا: 9 أقسام أساسية في Listening & Speaking وقسم Script Study مستقل، و10 أقسام أساسية في Reading & Writing وقسم Script Study.
-- تم نقل **134 سؤالًا** إلى Supabase كمسودات، منها **61 LS** و**73 RW**، مع **134 مفتاح إجابة** محفوظًا خارج الواجهة العامة.
-- تم فهرسة **52 مجموعة أنشطة أصلية** بحسب الكتاب والقسم وصفحة PDF (26 لكل كتاب). الفهرسة لا تعني أن كل تمرين تحول بعد إلى نشاط تفاعلي.
-- القاموس: **97 كلمة** أولية موزعة على الوحدتين 1 و2 في الكتابين. Unit 1 فيها 14 كلمة LS و27 كلمة RW.
-- تم إضافة شروح عربية وأرقام صفحات المصدر لجميع أقسام Unit 1، مع الحفاظ على اتجاه اللغة الإنجليزية.
-- تم عزل Script Study عن مهارات الاستماع والمشاهدة لحين وصول الملفات.
-- تم تأسيس حفظ عمل الطالب، تسليم مهام Writing/Speaking، ومراجعة المدرس وإظهار النتائج.
-- تم نشر خدمتي Edge: `grade-activity` و`get-course-file` لحماية التصحيح وملفات المحتوى.
-- GitHub Pages منشورة، وWorkflow بيفحص صلاحية JavaScript قبل نشر التحديثات.
+1. Listening, Speaking & Critical Thinking — Unit 1 People
+2. Reading, Writing & Critical Thinking — Unit 1 People
 
-## نقاط لم تكتمل
+Each book has its own units, lessons, questions, glossary, submitted work and enrollment. Units 2–8 remain drafts.
 
-- تحويل كل نشاط أصلي من صور الصفحات إلى عنصر تفاعلي، ومطابقة الإجابات والروبركس فرديًا.
-- ملفات الصوت 1.1–1.8 والفيديوهات الأصلية ومطابقة الأسئلة بها.
-- رفع الصور الأصلية إلى تخزين خاص؛ صور الكتاب لا توجد في المستودع العام لحماية حقوق الترخيص.
-- حساب أدمن حقيقي وتسجيل طالب اختباري وحفظ الدرجات عبر المتصفح فعليًا.
-- ربط الدومين المستقل وفحص DNS.
+## Published in Supabase
 
-**القرار الحالي:** كل الوحدات والأسئلة في حالة Draft، ولا توجد وحدة أو أسئلة معتمدة للطلاب بعد. هذه حالة مقصودة حتى يكتمل تدقيق المحتوى والاختبار.
+- **2 Unit 1 records** with status `published`.
+- **21 sections/lessons** published (including two Script Study sections).
+- **134 objective and sentence-ordering questions** published; 134 keys stored in private backend tables. Wrong answers show the correct choice and a linguistic explanation.
+- **52 page-indexed original-exercise groups**, each with a corresponding guided writing/discussion response or a pending-media label. These are indexed teaching activities, not necessarily full verbatim conversions of every original publisher question.
+- **41 Unit 1 vocabulary entries**: 14 LS + 27 RW, with Arabic meaning, original Cambridge Glossary English definition, IPA, part of speech, and PDF Glossary reference.
+- **4 core Reading passages / blocks** (Chloe Kim profile and article, Sultan Kösen texts A/B), plus **five available script records** (4 LS, 1 RW), with source references.
+- **21 Arabic tutorial sections**, and a unit-level glossary; per-part vocabulary matched to lessons.
+- **10 media placeholders** (8 LS audio tracks and 2 original video slots), still awaiting files.
+- Media-related lesson cards clearly display **سيتم النشر**. No objective activity remains under audio/video lesson kinds; text script questions are under Script Study only.
 
-**Supabase:** `caumpvsypmkpewdbiedd` — لا توجد أي تعديلات على مشروع STEP.
+## Navigation and admin
+
+Admin has four functional tabs: Lessons & Questions, Media, Students, and Teacher Reviews. Books and units collapse, reducing long scrolling; books have a student-preview button. Learner lesson pages show original book chapter, printed page and PDF page, explanations, source index, question, feedback and vocabulary. Unit lessons offer next/previous navigation.
+
+## Authentic media vs source scripts
+
+Audio/video files have not been uploaded. Script Study is text reading only and cannot be represented as an actual listening/video score. Videos and original audio can be uploaded and approved later through the private-media admin interface. Source page screenshots are distributed in the private offline review ZIP and **have not yet been uploaded to the protected Supabase Storage bucket**.
+
+## Evidence and guardrails
+
+- GitHub Actions static build and `node --check` successful.
+- RLS: student access to published Unit 1 content tested with a simulated enrolled JWT in a rolled-back SQL transaction. Admin can read all draft/review content; answer keys are not readable by learner or anon roles.
+- Actual browser login and course submission by independent student account remains untested.
+- A page-indexed guided exercise is not proof of exact conversion of every printed publisher exercise. The remaining literal transcription and exercise-by-exercise editorial sign-off must be completed before claiming 100% Cambridge digital fidelity.
+- The Supabase password leaked-password protection setting currently has a security advisor warning; enable it in Auth configuration.
+
+**Supabase project:** `caumpvsypmkpewdbiedd` (independent of STEP).
+**Deployed student portal:** https://seifyadobe97-dotcom.github.io/unlockwithseify/
