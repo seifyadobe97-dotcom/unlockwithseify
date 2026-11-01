@@ -147,6 +147,7 @@ async function resultsPage(){
  frame('نتائجك وتقدمك','درجات الأسئلة المعتمدة من خادم التصحيح · مسودات الكتابة والتحدث والمراجعة',
  '<div class="cols"><div class="card"><h2>أسئلة تم تصحيحها</h2><div class="en title">'+graded.length+'</div><p>الصحيح: '+graded.filter(x=>Number(x.score)===1).length+'</p></div>'+
  '<div class="card"><h2>مهام تم تسليمها</h2><div class="en title">'+works.filter(x=>x.submission_status==='submitted').length+'</div><p>المسودات المحفوظة: '+works.filter(x=>x.submission_status==='draft').length+'</p></div></div>'+
+ '<div class="card" style="margin-top:16px"><h2>معرّف حسابك للتسجيل في الكتاب</h2><p class="en">'+esc(T.user.id)+'</p></div>'+
  '<div class="card" style="margin-top:16px"><h2>أحدث المحاولات</h2><div class="list">'+(attempts.map(x=>'<div class="lesson-card"><span>'+esc(new Date(x.created_at).toLocaleString('ar-EG'))+'</span><span class="tag '+(Number(x.score)===1?'ok':'draft')+'">'+(x.score===null?'بانتظار التصحيح':Number(x.score)===1?'صحيح':'خطأ')+'</span></div>').join('')||'<div class="empty">مفيش محاولات محفوظة لسه.</div>')+'</div></div>');
 }
 async function reviewsPage(){
@@ -174,6 +175,17 @@ async function saveReview(id){
  notice('اتحفظ تقييم الطالب');await reviewsPage();
 }
 
+
+
+async function enrollStudent(){
+ if(!T.admin||!T.user)return;
+ const id=document.getElementById('enroll-student-id')?.value?.trim()||'';
+ const bookId=document.getElementById('enroll-book-id')?.value||'';
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)){notice('ادخل User ID صحيح','warning');return;}
+ const {error}=await db.from('enrollments').insert({student_id:id,book_id:bookId});
+ if(error){notice('تعذر تسجيل الطالب: '+error.message,'warning');return;}
+ notice('تم تسجيل الطالب في الكتاب المحدد، دون تغيير تسجيله في الكتاب الآخر');await adminPage();
+}
 
 async function uploadMedia(id){
  if(!T.admin||!T.user)return;
@@ -259,6 +271,7 @@ async function adminPage(){
   const lesson=lessons.find(l=>l.id===m.lesson_id),unit=units.find(u=>u.id===lesson?.unit_id),book=books.find(b=>b.id===unit?.book_id);
   return '<div class="lesson-card"><div><strong>'+esc(book?.title||'')+' · Unit '+esc(unit?.number||'')+'</strong><div class="subtle en">'+esc(m.kind)+' '+esc(m.original_track||'Unit video')+' · '+esc(m.asset_status)+'</div></div><div class="row"><input class="field" style="max-width:225px" type="file" accept="'+(m.kind==='audio'?'.mp3,.m4a,.wav,.ogg':'.mp4,.webm,.mov')+'" data-media-file="'+m.id+'">'+button('رفع الملف','data-action="upload-media" data-id="'+m.id+'"')+(m.storage_path?button('اعتماد الملف','data-action="approve-media" data-id="'+m.id+'"'):'')+'</div></div>';
  }).join('');
+ const enrollmentUpload='<section class="card"><h2>إضافة طالب إلى كتاب</h2><p>بعد إنشاء الطالب حسابه، انسخ User ID من صفحة درجاتي. يمكن إضافته لكل كتاب بصورة مستقلة.</p><div class="row"><input id="enroll-student-id" class="field" style="max-width:370px" placeholder="Student UUID" dir="ltr"><select id="enroll-book-id" class="field" style="max-width:310px">'+books.map(b=>'<option value="'+b.id+'">'+esc(b.title)+'</option>').join('')+'</select>'+button('تسجيل الطالب','data-action="enroll-student"')+'</div></section>';
  const sourceUpload='<section class="card"><h2>رفع صفحات الكتاب الأصلية — Private Storage</h2><p>ارفع ملفات WEBP بأسمائها الأصلية مثل ls-024.webp أو rw-034.webp. الملفات لا تُنشر في GitHub العام.</p><div class="row"><select id="source-book" class="field" style="max-width:280px"><option value="listening-speaking">Listening & Speaking</option><option value="reading-writing">Reading & Writing</option></select><input type="file" class="field" id="source-files" accept=".webp" multiple>'+button('رفع الصفحات','data-action="upload-sources"')+'</div><div id="source-upload-status" class="subtle"></div></section>';
  const mediaUpload='<section class="card"><h2>ملفات Unit 1 المطلوبة</h2><p>بمجرد رفع الملف يتحول إلى Uploaded؛ بعد مراجعة الجودة يتم اعتماده من لوحة الإدارة.</p><div class="list">'+mediaCards+'</div></section>';
  frame('Admin · Content Review','مراجعة حالة نشر الكتب والوحدات والدروس — أي تغيير يُطبَّق بصلاحيات Supabase الآمنة','<div class="notice warning">مسودات الوحدة غير مكتملة. الرفع والنشر مسئولية الإدارة بعد مراجعة كل تمرين وتصحيحه. الميديا المفقودة تمنع نشر دروس المشاهدة والاستماع من هنا.</div>'+'<div class="row" style="margin:16px 0">'+button('مراجعة التسليمات','data-action="reviews"')+'</div><div class="stack">'+cards+'</div>');
@@ -306,7 +319,7 @@ async function adminUpdate(el){
 document.addEventListener('click',async e=>{
  const el=e.target.closest('button[data-action]');if(!el)return;
  const act=el.dataset.action;
- try{if(act==='home')home();else if(act==='admin')await adminPage();else if(act==='reviews')await reviewsPage();else if(act==='save-review')await saveReview(el.dataset.id);else if(act==='results')await resultsPage();else if(act==='source-page')await sourcePage(el.dataset.page);else if(act==='save-work')await saveWork(false);else if(act==='submit-work')await saveWork(true);else if(act==='admin-update')await adminUpdate(el);else if(act==='upload-media')await uploadMedia(el.dataset.id);else if(act==='approve-media')await approveMedia(el.dataset.id);else if(act==='upload-sources')await uploadSources();else if(act==='login')authPage();else if(act==='signup')authPage(true);else if(act==='logout'){await db.auth.signOut();await refresh(true)}else if(act==='book')await bookPage(el.dataset.id||T.book?.id);else if(act==='unit')await unitPage(el.dataset.id);else if(act==='lesson')await lessonPage(el.dataset.id);else if(act==='grade')await grade(el.dataset.id,el);}catch(err){notice('خطأ غير متوقع: '+err.message,'warning');}
+ try{if(act==='home')home();else if(act==='admin')await adminPage();else if(act==='reviews')await reviewsPage();else if(act==='save-review')await saveReview(el.dataset.id);else if(act==='results')await resultsPage();else if(act==='source-page')await sourcePage(el.dataset.page);else if(act==='save-work')await saveWork(false);else if(act==='submit-work')await saveWork(true);else if(act==='admin-update')await adminUpdate(el);else if(act==='enroll-student')await enrollStudent();else if(act==='upload-media')await uploadMedia(el.dataset.id);else if(act==='approve-media')await approveMedia(el.dataset.id);else if(act==='upload-sources')await uploadSources();else if(act==='login')authPage();else if(act==='signup')authPage(true);else if(act==='logout'){await db.auth.signOut();await refresh(true)}else if(act==='book')await bookPage(el.dataset.id||T.book?.id);else if(act==='unit')await unitPage(el.dataset.id);else if(act==='lesson')await lessonPage(el.dataset.id);else if(act==='grade')await grade(el.dataset.id,el);}catch(err){notice('خطأ غير متوقع: '+err.message,'warning');}
 });
 document.getElementById('nav-home').addEventListener('click',home);
 db.auth.onAuthStateChange((_event,session)=>{if((session?.access_token||null)!==(T.session?.access_token||null)){Promise.resolve().then(()=>refresh(true));}});
