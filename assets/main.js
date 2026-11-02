@@ -42,8 +42,13 @@ async function bookPage(bookId){
  const book=T.books.find(b=>b.id===bookId);if(!book){home();return;}T.book=book;T.unit=T.lesson=null;
  const {data:units,error}=await db.from('units').select('id,number,title,status,source_pdf_page').eq('book_id',bookId).order('number');
  if(error){notice(error.message,'warning');return;}
- const cards=(units||[]).map(u=>'<button class="unit-card" data-action="unit" data-id="'+u.id+'"><span class="num">UNIT '+String(u.number).padStart(2,'0')+'</span><strong class="en">'+esc(u.title)+'</strong>'+badge(u.status)+'</button>').join('');
- frame(book.title,'منهج مستقل · 8 وحدات · درجات وقاموس خاص بالكتاب',crumb('Unlock 1',book.title)+'<div class="row" style="margin-bottom:15px">'+button('العودة للرئيسية','data-action="home"')+badge(book.status)+'</div><div class="grid8">'+cards+'</div>'+sourceAlert);
+ const cards=(units||[]).map(u=>{
+  const accessible=u.status==='published'||T.admin;
+  const label='<span class="num">UNIT '+String(u.number).padStart(2,'0')+'</span><strong class="en">'+esc(u.title)+'</strong><span class="unit-status">'+(u.status==='published'?'افتح الوحدة':'قريبًا')+'</span>';
+  return accessible?'<button class="unit-card'+(u.number===1?' is-featured':'')+'" data-action="unit" data-id="'+u.id+'">'+label+'</button>':
+    '<article class="unit-card is-upcoming" aria-label="Unit '+u.number+' قيد الإعداد">'+label+'</article>';
+ }).join('');
+ frame(book.title,'منهج مستقل · 8 وحدات · درجات وقاموس خاص بالكتاب',crumb('Unlock 1',book.title)+'<div class="row" style="margin-bottom:15px">'+button('العودة للرئيسية','data-action="home"')+'</div><section class="book-units"><div class="section-lead"><div><span class="micro-heading">اختار وحدتك</span><h2>ابدأ من Unit 1 — People</h2><p class="subtle">الوحدة الأولى متاحة. باقي الوحدات هتظهر بالتدريج بعد اعتمادها.</p></div></div><div class="grid8">'+cards+'</div></section>'+sourceAlert);
 }
 async function unitPage(unitId){
  if(!T.book){home();return;}
