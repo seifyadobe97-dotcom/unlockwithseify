@@ -365,3 +365,46 @@ body{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;font-size:16px;line
 .crop-zoom-scroll>.zoomed-cut>img{width:100%;max-width:none}
 .crop-zoom-scroll .source-cut-loading{display:none}
 @media(max-width:650px){.crop-zoom-dialog{padding:11px}.crop-zoom-scroll{padding:6px}.crop-zoom-dialog>p{line-height:1.5}}
+
+
+/* Source-verified exercise + answer / sample UI */
+.textbook-exercises{padding:22px 24px}
+.textbook-exercises>.study-section-heading{border-bottom:1px solid #e7edf3;padding-bottom:13px}
+.textbook-exercise{border:1px solid #dce6ef;border-radius:14px;padding:18px 19px;background:#fff;margin:17px 0;box-shadow:0 3px 10px rgba(30,55,78,.025)}
+.textbook-exercise:last-child{margin-bottom:0}
+.textbook-exercise-header{display:flex;gap:11px;align-items:flex-start}
+.exercise-page-chip{white-space:nowrap;border-radius:100px;background:#f4f0e5;color:#83601b;border:1px solid #e9debf;padding:4px 11px;font-size:12px;font-weight:800}
+.textbook-exercise-header h3{margin:0;color:#254e70;font-size:17px;line-height:1.55}
+.textbook-exercise-header p{margin:2px 0;color:#7a8c9d;font-size:12.5px}
+.exercise-instruction{background:#f8fbfe;color:#455f77;padding:12px 13px;border-radius:10px;margin:12px 0 13px;font-size:14px;line-height:1.95}
+.exercise-book-page{border:1px solid #d9e6f0;border-radius:11px;overflow:hidden;margin:12px 0}
+.exercise-book-page>summary{background:#f6f9fc;color:#285b80;font-weight:750;font-size:13.5px;padding:11px 14px;cursor:pointer}
+.exercise-book-page[open]>summary{border-bottom:1px solid #e2ebf2}
+.exercise-book-page>.textbook-figure{border:0;padding:13px}
+.exercise-book-page .source-cut{max-width:760px;margin:auto}
+.exercise-answer-area{border-top:1px dashed #e0e9f1;padding-top:12px}
+.exercise-status-label{font-size:12px;font-weight:800;color:#3f6686;display:inline-block;margin:0 0 9px}
+.exercise-answer-area .textarea{min-height:100px;max-height:245px;resize:vertical;direction:auto}
+.exercise-answer-area .task-actions{margin:11px 0}
+.exercise-model-answer{margin:13px 0;border:1px solid #c9e0d3;background:#f5faf7;border-radius:10px;overflow:hidden}
+.exercise-model-answer summary{padding:11px 13px;color:#2a6549;font-size:13px;font-weight:750;cursor:pointer}
+.exercise-model-answer[open] summary{border-bottom:1px solid #cfe6d6}
+.exercise-answer-content{padding:12px 14px;line-height:1.95}
+.exercise-answer-content>span{font-size:11px;font-weight:750;color:#6f887b}
+.exercise-answer-content p{margin:6px 0 0;white-space:pre-wrap;font-size:14px;color:#2c4d3c;unicode-bidi:plaintext}
+.book-original-intro{padding:11px 13px;background:#eff6fc;border-radius:10px;margin:6px 0 12px}
+.book-original-intro strong{font-size:14px;color:#1b537b}
+.book-original-intro p{margin:2px 0;font-size:12.5px;color:#597891}
+.source-linked-questions{padding:0 3px}
+.source-linked-questions .quiz{padding:15px 0;border-bottom:1px solid #e8edf2}
+.source-linked-questions .quiz:last-child{border-bottom:0}
+.exercise-status-note{background:#fff9ef;color:#866123;border:1px solid #f0e1c0;border-radius:9px;padding:11px 13px;font-size:12.5px;line-height:1.7}
+#lesson-practice .quiz[hidden]{display:none!important}
+@media(max-width:700px){
+ .textbook-exercises{padding:15px 14px}
+ .textbook-exercise{padding:13px 12px;margin:12px 0}
+ .textbook-exercise-header h3{font-size:15px}
+ .exercise-instruction{padding:11px;font-size:13px}
+ .exercise-book-page>.textbook-figure{padding:9px}
+ .textbook-exercises>.study-section-heading h2{font-size:19px}
+}
