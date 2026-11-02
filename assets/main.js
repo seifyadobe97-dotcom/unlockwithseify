@@ -105,8 +105,30 @@ async function lessonPage(id){
    if(rid.length){const {data:graded}=await db.from('exercise_feedback').select('response_id,score,feedback_ar').in('response_id',rid);const g=Object.fromEntries((graded||[]).map(x=>[x.response_id,x]));for(const x of Object.values(answerMap))x.review=g[x.id]||null;}
  }
  const learningBlocks=Array.isArray(guidance.teaching_blocks)?guidance.teaching_blocks:[];
- const expandedGuide=learningBlocks.length?'<section class="card teacher-guide" id="lesson-explanation"><div class="section-lead"><div><span class="micro-heading">افهم قبل ما تحل</span><h2>شرح الدرس خطوة بخطوة</h2></div><span class="tag">'+learningBlocks.length+' خطوات</span></div>'+learningBlocks.map((x,i)=>'<article class="teaching-step"><div class="step-head"><span class="step-number">'+(i+1)+'</span><h3>'+esc(x.h||'الفكرة')+'</h3>'+(x.page?'<span class="book-page-chip">ص '+printPage(x.page)+'</span>':'')+'</div><p class="step-description">'+esc(x.ar||'')+'</p>'+(x.en?'<div class="en sample">'+esc(x.en)+'</div>':'')+(x.wrong?'<div class="compare-example"><strong>لاحظ الفرق:</strong><span class="en">'+esc(x.wrong)+'</span></div>':'')+(x.tip?'<div class="learning-tip"><strong>خد بالك:</strong> '+esc(x.tip)+'</div>':'')+'</article>').join('')+'<p class="subtle educator-note">الشرح العربي والأمثلة الإضافية من إعداد المعهد، مع مرجع القاعدة في الكتاب.</p></section>':'';
- const readingItems=Array.isArray(guidance.verified_source_readings)?guidance.verified_source_readings:[];
+
+ const bookCut=(entry,i,extraClass='')=>{
+  const clip=entry.source_clip||null;
+  const sourcePage=Number(clip?.page||entry.page||pages[Math.min(i,pages.length-1)]||pages[0]);
+  if(!sourcePage||!Number.isFinite(sourcePage))return '';
+  const verified=clip?.verified===true;
+  const top=verified?Math.max(0,Math.min(1400,Number(clip.top)||0)):50;
+  const bottom=verified?Math.min(1545,Math.max(top+80,Number(clip.bottom)||1545)):1430;
+  const height=Math.max(80,bottom-top);
+  return '<div class="textbook-figure '+extraClass+'"><div class="textbook-figure-top"><span class="textbook-source-badge">من صفحة الكتاب · ص '+printPage(sourcePage)+'</span>'+(verified?'<span class="textbook-focus-label">الجزء المرتبط بالشرح</span>':'<span class="textbook-focus-label">الصفحة الأصلية</span>')+'</div>'+
+   '<div class="source-cut" data-pdf-page="'+sourcePage+'" data-top="'+top+'" data-bottom="'+bottom+'" style="aspect-ratio:1150 / '+height+'"><div class="source-cut-loading">جاري إظهار صفحة الكتاب…</div></div>'+
+   '<div class="textbook-figure-foot">'+button('شوف الصفحة كاملة','data-action="study-source-full" data-page="'+sourcePage+'"')+'</div></div>';
+ };
+ const expandedGuide=learningBlocks.length?
+   '<section class="book-first-chapter" id="lesson-explanation"><div class="book-first-intro"><span class="study-section-kicker">الكتاب قدامك · وهنشرح عليه</span><h2>اقرأ الجزء ده من الكتاب، وبعدها افهمه</h2><p>كل صورة من صفحات الكتاب الأصلية، والشرح اللي جنبها بيوضح الفكرة من غير ما يغيّر النص.</p></div>'+
+   learningBlocks.map((x,i)=>'<article class="book-first-step" id="book-step-'+i+'">'+bookCut(x,i)+
+    '<div class="book-teacher-note"><div class="book-teacher-number">شرح '+(i+1)+' / '+learningBlocks.length+'</div>'+
+    '<h3>'+esc(x.h||'الفكرة')+'</h3><p>'+esc(x.ar||'')+'</p>'+
+    (x.en?'<div class="en sample">'+esc(x.en)+'</div>':'')+
+    (x.wrong?'<div class="compare-example"><strong>الفرق بين الصح والغلط:</strong><span class="en">'+esc(x.wrong)+'</span></div>':'')+
+    (x.tip?'<div class="learning-tip"><strong>ركّز هنا:</strong> '+esc(x.tip)+'</div>':'')+
+    '<div class="book-teacher-source">المرجع: ص '+printPage(x.source_clip?.page||x.page||pages[Math.min(i,pages.length-1)]||pages[0])+' من الكتاب المطبوع</div></div></article>').join('')+
+   '</section>':'';
+  const readingItems=Array.isArray(guidance.verified_source_readings)?guidance.verified_source_readings:[];
  const originalReadings=readingItems.length?'<section class="card" style="margin-bottom:15px"><h2>نص القراءة من الكتاب</h2>'+readingItems.map(x=>'<article class="study-block"><div class="source-ref">صفحة الكتاب '+printPage(x.page)+'</div><h3 class="en">'+esc(x.heading||'Reading')+'</h3><div class="en original-text">'+esc(x.text||'')+'</div></article>').join('')+'</section>':'';
  const scripts=Array.isArray(guidance.original_scripts)?guidance.original_scripts:[];
  const scriptExtract=scripts.length?'<details class="card compact-panel" id="script-study"><summary>اقرأ سكريبتات الوحدة <span class="tag">تدريب قراءة</span></summary><div class="notice warning">ده تدريب على النص المكتوب فقط؛ مش درجة Listening أو Watching.</div>'+scripts.map(x=>'<article class="study-block"><div class="source-ref">'+bookPageLabel(x.page)+'</div><h3 class="en">'+esc(x.label)+'</h3><div class="en original-text">'+esc(x.text)+'</div></article>').join('')+'</details>':
@@ -146,7 +168,10 @@ async function lessonPage(id){
   return '<button class="study-lesson-link'+(selected?' active':'')+'" type="button" data-action="lesson" data-id="'+item.id+'" '+(selected?'aria-current="page"':'')+'><span class="study-lesson-order">'+(i+1)+'</span><span class="study-lesson-info"><strong class="en">'+esc(item.title)+'</strong><small>'+loc+(unavailable?' · الميديا سيتم نشرها':'')+'</small></span>'+(selected?'<span class="active-dot" aria-hidden="true"></span>':'')+'</button>';
  }).join('');
  const sidebar='<aside class="study-sidebar"><div class="study-sidebar-header"><span class="study-rail-kicker">مسار التعلم</span><h2>'+unitName+'</h2><p>'+T.lessons.length+' أجزاء · اختار أي درس مباشرة</p></div><details class="study-nav-collapsible" '+(window.matchMedia?.("(max-width:770px)")?.matches?"":"open")+'><summary>أجزاء الوحدة <span class="study-nav-count">'+(lessonNumber+1)+' / '+T.lessons.length+'</span></summary><nav class="study-lesson-nav" aria-label="دروس الوحدة">'+sidebarLinks+'</nav></details><div class="study-sidebar-footer">'+button('العودة لكل أجزاء الوحدة','data-action="unit" data-id="'+T.unit.id+'"')+'</div></aside>';
- const practiceHtml='<section class="study-section practice-panel" id="lesson-practice"><div class="study-section-heading"><div><span class="study-section-kicker">02 · طبّق بنفسك</span><h2>تدريبات الدرس</h2><p>اختار الإجابة، وبعدها اعرف الحل وسببه.</p></div><span class="study-pill">'+(acts||[]).length+' سؤال</span></div>'+(question||'<div class="study-empty">مفيش أسئلة اختيار آلي في الجزء ده. لو فيه مهمة كتابة أو نشاط من الكتاب هتلاقيه تحت.</div>')+'</section>';
+ const exerciseSource=(T.book.slug==='listening-speaking'&&l.slug==='language')?{page:24,top:515,bottom:830,verified:true}:
+  (T.book.slug==='reading-writing'&&l.slug==='grammar')?{page:29,top:575,bottom:1000,verified:true}:null;
+ const practiceVisual=exerciseSource?'<div class="book-practice-source"><div><span class="study-section-kicker">من الكتاب مباشرة</span><h3>ده شكل التمرين في صفحته الأصلية</h3><p>شوف صيغة السؤال في الكتاب، وبعدها جاوب في الأسئلة التفاعلية.</p></div>'+bookCut({page:exerciseSource.page,source_clip:exerciseSource},0,'practice-slice')+'</div>':'';
+ const practiceHtml='<section class="study-section practice-panel" id="lesson-practice"><div class="study-section-heading"><div><span class="study-section-kicker">02 · طبّق بنفسك</span><h2>تدريبات الدرس</h2><p>اختار الإجابة، وبعدها اعرف الحل وسببه.</p></div><span class="study-pill">'+(acts||[]).length+' سؤال</span></div>'+practiceVisual+(question||'<div class="study-empty">مفيش أسئلة اختيار آلي في الجزء ده. لو فيه مهمة كتابة أو نشاط من الكتاب هتلاقيه تحت.</div>')+'</section>';
  const bookSources=sources.replace('class="card compact-panel" id="book-sources"','class="card compact-panel source-book-card" id="book-sources" open');
  const studyContents='<div class="study-panel" data-study-panel="learn" role="tabpanel" id="study-panel-learn" aria-labelledby="study-tab-learn">'+
   (mediaPanel||'')+(learningBlocks.length?'':guide)+expandedGuide+originalReadings+
@@ -174,6 +199,55 @@ async function lessonPage(id){
   '<p class="study-legal">المحتوى الأصلي معروض للمسجلين المصرح لهم. الشروح الإضافية من إعداد المعهد.</p>'+
   '</div></div></div>';
  initializeQuestionPager();
+ initializeSourceCuts();
+}
+
+async function loadSourceCut(el){
+ if(!el||el.dataset.loading==='1'||el.dataset.loaded==='1')return;
+ if(!T.book||!T.unit||!T.session?.access_token)return;
+ const page=Number(el.dataset.pdfPage),top=Number(el.dataset.top);
+ if(!Number.isInteger(page)||!Number.isFinite(top)||page<1||page>250)return;
+ el.dataset.loading='1';
+ const prefix=T.book.slug==='listening-speaking'?'ls':'rw';
+ const path=T.book.slug+'/u'+T.unit.number+'/source/'+prefix+'-'+String(page).padStart(3,'0')+'.webp';
+ try{
+  const response=await fetch(cfg.url+'/functions/v1/get-course-file',{
+   method:'POST',headers:{
+    'Content-Type':'application/json','Authorization':'Bearer '+T.session.access_token,
+    'apikey':cfg.publishableKey
+   },body:JSON.stringify({path})
+  });
+  if(!response.ok)throw new Error('الصفحة غير متاحة للحساب الحالي');
+  const data=await response.json();
+  const signed=new URL(String(data.url||''));
+  if(signed.protocol!=='https:'||signed.hostname!==new URL(cfg.url).hostname)throw new Error('رابط غير موثوق');
+  if(!el.isConnected)return;
+  const image=document.createElement('img');
+  image.src=signed.href;
+  image.alt='جزء أصلي من الصفحة '+printPage(page)+' في الكتاب';
+  image.loading='eager';
+  image.decoding='async';
+  image.style.transform='translateY(-'+(top/1545*100).toFixed(5)+'%)';
+  image.addEventListener('load',()=>{if(el.isConnected){el.dataset.loaded='1';el.querySelector('.source-cut-loading')?.remove();}});
+  image.addEventListener('error',()=>{if(el.isConnected){el.dataset.loading='0';el.dataset.loaded='0';el.innerHTML='<div class="source-cut-error">تعذر عرض قصاصة الصفحة '+printPage(page)+' '+button('أعد المحاولة','data-action="retry-source-cut"')+'</div>'; }});
+  el.replaceChildren(image);
+ }catch(error){
+  if(el.isConnected)el.innerHTML='<div class="source-cut-error"><span>تعذر عرض الصفحة '+printPage(page)+'</span>'+button('أعد المحاولة','data-action="retry-source-cut"')+'</div>';
+ }finally{el.dataset.loading='0';}
+}
+function initializeSourceCuts(){
+ const slices=[...document.querySelectorAll('.student-workspace .source-cut')];
+ if(!slices.length)return;
+ if(!('IntersectionObserver' in window)){slices.forEach(el=>loadSourceCut(el));return;}
+ const observer=new IntersectionObserver(entries=>{
+  for(const entry of entries){
+   if(entry.isIntersecting){
+    observer.unobserve(entry.target);
+    loadSourceCut(entry.target);
+   }
+  }
+ },{rootMargin:'380px 0px',threshold:0});
+ slices.forEach(el=>observer.observe(el));
 }
 function initializeQuestionPager(){
  const container=document.getElementById('lesson-practice');
@@ -218,6 +292,7 @@ function showStudyTab(tab){
   el.setAttribute('aria-selected',String(active));
   el.tabIndex=0;
  });
+ view.querySelectorAll('.study-panel:not([hidden]) .source-cut').forEach(el=>loadSourceCut(el));
  view.querySelector('.study-tabs')?.scrollIntoView({block:'start',behavior:'auto'});
 }
 
@@ -631,7 +706,7 @@ async function adminUpdate(el){
 document.addEventListener('click',async e=>{
  const el=e.target.closest('button[data-action]');if(!el)return;
  const act=el.dataset.action;
- try{if(act==='home')home();else if(act==='study-tab')showStudyTab(el.dataset.tab);else if(act==='quiz-nav')navigateQuestion(Number(el.dataset.step));else if(act==='admin')await adminPage();else if(act==='admin-images'){T.adminTab='images';window.location.hash='upload-images';await adminPage();document.getElementById('admin-source-upload')?.scrollIntoView({block:'start',behavior:'smooth'});}else if(act==='admin-preview-book')await bookPage(el.dataset.id);else if(act==='admin-tab'){T.adminTab=el.dataset.tab;await adminPage();}else if(act==='reviews')await reviewsPage();else if(act==='review-exercises')await reviewIndexedExercisesPage();else if(act==='save-indexed-feedback')await saveIndexedFeedback(el.dataset.id);else if(act==='save-review')await saveReview(el.dataset.id);else if(act==='results')await resultsPage();else if(act==='play-media')await playMedia(el.dataset.id);else if(act==='source-page')await sourcePage(el.dataset.page);else if(act==='save-exercise')await saveIndexedExercise(el.dataset.id,false);else if(act==='submit-exercise')await saveIndexedExercise(el.dataset.id,true);else if(act==='save-work')await saveWork(false);else if(act==='submit-work')await saveWork(true);else if(act==='admin-update')await adminUpdate(el);else if(act==='enroll-student')await enrollStudent();else if(act==='upload-media')await uploadMedia(el.dataset.id);else if(act==='approve-media')await approveMedia(el.dataset.id);else if(act==='upload-sources')await uploadSources();else if(act==='login')authPage();else if(act==='signup')authPage(true);else if(act==='logout'){await db.auth.signOut();await refresh(true)}else if(act==='book')await bookPage(el.dataset.id||T.book?.id);else if(act==='unit')await unitPage(el.dataset.id);else if(act==='lesson')await lessonPage(el.dataset.id);else if(act==='grade')await grade(el.dataset.id,el);}catch(err){notice('خطأ غير متوقع: '+err.message,'warning');}
+ try{if(act==='home')home();else if(act==='study-tab')showStudyTab(el.dataset.tab);else if(act==='study-source-full'){showStudyTab('book');const d=document.getElementById('book-sources');if(d)d.open=true;await sourcePage(Number(el.dataset.page));}else if(act==='retry-source-cut')await loadSourceCut(el.closest('.source-cut'));else if(act==='quiz-nav')navigateQuestion(Number(el.dataset.step));else if(act==='admin')await adminPage();else if(act==='admin-images'){T.adminTab='images';window.location.hash='upload-images';await adminPage();document.getElementById('admin-source-upload')?.scrollIntoView({block:'start',behavior:'smooth'});}else if(act==='admin-preview-book')await bookPage(el.dataset.id);else if(act==='admin-tab'){T.adminTab=el.dataset.tab;await adminPage();}else if(act==='reviews')await reviewsPage();else if(act==='review-exercises')await reviewIndexedExercisesPage();else if(act==='save-indexed-feedback')await saveIndexedFeedback(el.dataset.id);else if(act==='save-review')await saveReview(el.dataset.id);else if(act==='results')await resultsPage();else if(act==='play-media')await playMedia(el.dataset.id);else if(act==='source-page')await sourcePage(el.dataset.page);else if(act==='save-exercise')await saveIndexedExercise(el.dataset.id,false);else if(act==='submit-exercise')await saveIndexedExercise(el.dataset.id,true);else if(act==='save-work')await saveWork(false);else if(act==='submit-work')await saveWork(true);else if(act==='admin-update')await adminUpdate(el);else if(act==='enroll-student')await enrollStudent();else if(act==='upload-media')await uploadMedia(el.dataset.id);else if(act==='approve-media')await approveMedia(el.dataset.id);else if(act==='upload-sources')await uploadSources();else if(act==='login')authPage();else if(act==='signup')authPage(true);else if(act==='logout'){await db.auth.signOut();await refresh(true)}else if(act==='book')await bookPage(el.dataset.id||T.book?.id);else if(act==='unit')await unitPage(el.dataset.id);else if(act==='lesson')await lessonPage(el.dataset.id);else if(act==='grade')await grade(el.dataset.id,el);}catch(err){notice('خطأ غير متوقع: '+err.message,'warning');}
 });
 document.addEventListener('input',e=>{if(e.target?.id==='unit-word-search'){const q=e.target.value.trim().toLocaleLowerCase();document.querySelectorAll('#unit-word-list .word').forEach(el=>{el.hidden=!el.textContent.toLocaleLowerCase().includes(q)});}});
 document.getElementById('nav-home').addEventListener('click',home);
