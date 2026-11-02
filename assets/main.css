@@ -133,3 +133,29 @@ body{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;font-size:16px;line
  .unit-dictionary .word-search{margin:13px 14px}
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.choice,.unit-card{transition:none}}
+
+
+/* Clear source image upload affordance for administrators */
+.admin-upload-shortcut{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:18px;border-color:#cbddeb;background:#eff5fb}
+.admin-upload-shortcut strong{display:block;font-size:18px;color:var(--navy)}
+.admin-upload-shortcut p{margin:4px 0;color:#536e89}
+.admin-upload-shortcut .button{background:#1d456f;border-color:#1d456f;color:white}
+#admin-source-upload{scroll-margin-top:22px}
+.upload-source-card{border:2px solid #b9d1e8;background:#fafcff}
+.upload-source-card h2{font-size:22px}
+.upload-source-card>.row{display:flex;align-items:flex-end;flex-wrap:wrap;gap:10px;margin-top:13px}
+.upload-source-card>.row .field{flex:1;min-width:180px;max-width:370px}
+.upload-source-card>.row .field-label{margin:0;flex:0 0 100%;font-size:14px}
+.upload-source-card>.row .button{background:#1d456f;border-color:#1d456f;color:white}
+.upload-source-card #source-upload-status{padding:10px 0;font-weight:650;color:#2e5a7d}
+.admin-tabs{overflow-x:auto;flex-wrap:nowrap;white-space:nowrap;padding-bottom:7px}
+.admin-tabs .button[data-action="admin-tab"][data-tab="images"]{border-color:#8aaed0;background:#eef5fc;color:#1c466c;font-weight:800}
+.admin-tabs .button[data-action="admin-tab"][data-tab="images"].primary{background:#1d456f;color:white;border-color:#1d456f}
+@media(max-width:650px){
+ .admin-upload-shortcut{align-items:stretch}
+ .admin-upload-shortcut .button{width:100%}
+ .upload-source-card .row>.button{width:100%}
+ .upload-source-card .field{max-width:100%!important}
+ .header-controls{max-width:calc(100vw - 90px)}
+ .header-controls .button[data-action="admin-images"]{background:#1d456f;color:white;border-color:#1d456f}
+}
