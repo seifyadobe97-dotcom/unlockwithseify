@@ -350,3 +350,18 @@ body{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;font-size:16px;line
  .book-teacher-note h3{font-size:16px}
  .textbook-source-badge{font-size:11px}
 }
+
+
+/* On-page magnifier for authentic cropped textbook illustrations */
+.textbook-figure-foot{gap:8px;flex-wrap:wrap}
+.crop-zoom-dialog{border:1px solid #cbd9e7;border-radius:17px;padding:16px;width:min(1000px,96vw);max-height:94vh;box-shadow:0 23px 85px rgba(12,27,48,.3);background:#fff;color:#264663}
+.crop-zoom-dialog::backdrop{background:rgba(11,30,48,.75)}
+.crop-zoom-header{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:10px}
+.crop-zoom-header strong{font-size:16px}
+.crop-zoom-header .button{font-size:12px;min-height:34px;padding:6px 14px}
+.crop-zoom-dialog>p{margin:5px 0 12px;color:#607789;font-size:12px}
+.crop-zoom-scroll{max-height:73vh;overflow:auto;border:1px solid #dce5ee;background:#eef3f7;border-radius:10px;padding:10px;overscroll-behavior:contain}
+.crop-zoom-scroll>.zoomed-cut{width:900px;max-width:none;margin:auto}
+.crop-zoom-scroll>.zoomed-cut>img{width:100%;max-width:none}
+.crop-zoom-scroll .source-cut-loading{display:none}
+@media(max-width:650px){.crop-zoom-dialog{padding:11px}.crop-zoom-scroll{padding:6px}.crop-zoom-dialog>p{line-height:1.5}}
