@@ -226,7 +226,20 @@ async function sourcePage(page){
  const holder=document.getElementById('source-availability');
  if(!holder)return;
  if(!response?.ok){holder.innerHTML='<div class="notice warning">صفحة '+Number(page)+' لسه مش مرفوعة في التخزين الخاص، أو حسابك غير مصرح له. </div>';return;}
- holder.innerHTML='<div class="notice"><a href="'+esc(data.url)+'" target="_blank" rel="noopener noreferrer">افتح صفحة المصدر '+Number(page)+' (الرابط مؤقت)</a></div>';
+ const signed=String(data.url||'');
+ let approvedUrl;
+ try{
+  approvedUrl=new URL(signed);
+  if(approvedUrl.protocol!=='https:'||approvedUrl.hostname!==new URL(cfg.url).hostname)throw new Error('Unexpected file URL');
+ }catch{
+  holder.innerHTML='<div class="notice warning">تعذر فتح صورة الكتاب بأمان، حاول تاني.</div>';
+  return;
+ }
+ const printed=printPage(page);
+ holder.innerHTML='<figure class="source-page-preview"><div class="source-preview-head"><strong>ص '+printed+' من الكتاب</strong><a href="'+esc(signed)+'" target="_blank" rel="noopener noreferrer">فتح الصورة بحجم كامل</a></div><img src="'+esc(signed)+'" alt="صورة صفحة '+printed+' من الكتاب المطبوع" loading="lazy" decoding="async"><figcaption>صورة الصفحة الأصلية للرجوع للتعليمات والأمثلة. رابط التكبير مؤقت ومحمي.</figcaption></figure>';
+ holder.querySelector('img')?.addEventListener('error',()=>{
+  holder.insertAdjacentHTML('beforeend','<div class="notice warning">تعذر تحميل الصورة الآن. استخدم رابط التكبير أو حاول مرة أخرى.</div>');
+ });
 }
 
 async function saveWork(submit=false){
