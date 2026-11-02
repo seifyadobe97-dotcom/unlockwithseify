@@ -368,25 +368,81 @@ async function approveMedia(id){
  notice('تم اعتماد الملف. يمكنك الآن مراجعة نشر الدرس.');await adminPage();
 }
 
+async function loadPrivateZipReader(){
+ if(window.JSZip)return window.JSZip;
+ await new Promise((resolve,reject)=>{
+  const script=document.createElement('script');
+  script.src='https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+  script.async=true;script.onload=resolve;script.onerror=()=>reject(new Error('تعذر تحميل أداة فتح ZIP'));
+  document.head.appendChild(script);
+ });
+ if(!window.JSZip)throw new Error('لم يتم تحميل أداة فتح الملفات');
+ return window.JSZip;
+}
 async function uploadSources(){
- if(!T.admin)return;
- const files=[...(document.getElementById('source-files')?.files||[])];
- const book=document.getElementById('source-book')?.value;
- if(!['listening-speaking','reading-writing'].includes(book)||!files.length){notice('اختر الكتاب وملفات WEBP','warning');return;}
- const prefix=book==='listening-speaking'?'ls':'rw';
- const status=document.getElementById('source-upload-status');let done=0,fail=0;
- for(const file of files){
-  const match=file.name.match(/^(ls|rw)-(\d{3})\.webp$/i);
-  if(!match||match[1].toLowerCase()!==prefix||file.size>8*1024*1024){fail++;continue;}
-  const page=Number(match[2]);
-  const validPage=(page>=16&&page<=37)||(book==='listening-speaking'?[194,196,198,206,207].includes(page):[192,193,206].includes(page));
-  if(!validPage){fail++;continue;}
-  const path=book+'/u1/source/'+file.name.toLowerCase();
-  const {error}=await db.storage.from('unlock-course-media').upload(path,file,{upsert:true,contentType:'image/webp'});
-  if(error)fail++;else done++;
-  if(status)status.textContent='تم رفع '+done+' صفحة · تعذر '+fail;
+ if(!T.admin){notice('رفع الصور متاح للأدمن فقط','warning');return;}
+ const picked=[...(document.getElementById('source-files')?.files||[])];
+ const selectBook=document.getElementById('source-book')?.value;
+ const status=document.getElementById('source-upload-status');
+ const btn=document.querySelector('[data-action="upload-sources"]');
+ if(!picked.length){notice('اختار ملف ZIP أو صور WEBP أولًا','warning');return;}
+ let done=0,fail=0,skipped=0,total=0;
+ const failures=[];
+ if(btn)btn.disabled=true;
+ const progress=msg=>{if(status)status.textContent=msg;};
+ try{
+  let pages=[];
+  for(const file of picked){
+   if(/\.zip$/i.test(file.name)){
+    if(file.size>80*1024*1024)throw new Error('الأرشيف أكبر من الحد المسموح (80 MB)');
+    progress('جاري فتح الملف المضغوط، وتجهيز صور الوحدة...');
+    const JSZip=await loadPrivateZipReader();
+    const archive=await JSZip.loadAsync(file);
+    const entries=Object.values(archive.files).filter(x=>!x.dir&&/\.webp$/i.test(x.name));
+    if(entries.length>150)throw new Error('عدد الصور في الأرشيف أكبر من 150');
+    for(const entry of entries){
+     const filename=entry.name.split('/').pop()?.toLowerCase()||'';
+     if(!/^(ls|rw)-\d{3}\.webp$/.test(filename)){skipped++;continue;}
+     const bytes=await entry.async('uint8array');
+     if(bytes.byteLength>8*1024*1024){fail++;failures.push(filename+' (أكبر من 8 MB)');continue;}
+     pages.push({filename,blob:new Blob([bytes],{type:'image/webp'})});
+    }
+   }else if(/\.webp$/i.test(file.name)){
+    pages.push({filename:file.name.toLowerCase(),blob:file});
+   }else skipped++;
+  }
+  if(!pages.length)throw new Error('الملف لا يحتوي على صور WEBP بأسماء ls-016.webp أو rw-016.webp');
+  for(const entry of pages){
+   const found=entry.filename.match(/^(ls|rw)-(\d{3})\.webp$/);
+   if(!found){fail++;failures.push(entry.filename);continue;}
+   const prefix=found[1],page=Number(found[2]);
+   const book=prefix==='ls'?'listening-speaking':'reading-writing';
+   const permitted=(page>=16&&page<=37)||
+    (prefix==='ls'?[194,196,198,206,207].includes(page):[192,193,206,207,208].includes(page));
+   if(!permitted||entry.blob.size>8*1024*1024){
+    fail++;failures.push(entry.filename+' (رقم صفحة/حجم غير مناسب)');continue;
+   }
+   if(picked.every(x=>!x.name.toLowerCase().endsWith('.zip'))&&book!==selectBook){
+    fail++;failures.push(entry.filename+' (اختار الكتاب المناسب)');continue;
+   }
+   total++;
+   progress('رفع '+(done+fail+1)+' من '+pages.length+' · نجح '+done+' · تعذر '+fail);
+   const path=book+'/u1/source/'+entry.filename;
+   const {error}=await db.storage.from('unlock-course-media').upload(path,entry.blob,{
+    upsert:true,contentType:'image/webp',cacheControl:'3600'
+   });
+   if(error){fail++;failures.push(entry.filename+': '+error.message);}
+   else done++;
+   progress('تم رفع '+done+' صورة · فشل '+fail+(skipped?' · تجاهل '+skipped+' ملف غير مطلوب':''));
+  }
+  if(failures.length)progress('نجح '+done+'، تعذر '+fail+'. التفاصيل: '+failures.slice(0,4).join(' | '));
+  notice('صور Unit 1: تم رفع '+done+' ملفًا إلى Supabase الخاص؛ تعذر '+fail+'.');
+ }catch(err){
+  progress('تعذر استكمال رفع الصور: '+err.message);
+  notice('فشل رفع الصور: '+err.message,'warning');
+ }finally{
+  if(btn)btn.disabled=false;
  }
- notice('تم رفع '+done+' صفحة إلى التخزين الخاص، وتعذر '+fail+' ملف. راجع الأسماء والصيغ.'); 
 }
 
 async function adminPage(){
@@ -420,7 +476,7 @@ async function adminPage(){
   return '<div class="lesson-card"><div><strong>'+esc(book?.title||'')+' · Unit '+esc(unit?.number||'')+'</strong><div class="subtle en">'+esc(m.kind)+' '+esc(m.original_track||'Unit video')+' · '+esc(m.asset_status)+'</div></div><div class="row"><input class="field" style="max-width:225px" type="file" accept="'+(m.kind==='audio'?'.mp3,.m4a,.wav,.ogg':'.mp4,.webm,.mov')+'" data-media-file="'+m.id+'">'+button('رفع الملف','data-action="upload-media" data-id="'+m.id+'"')+(m.storage_path?button('اعتماد الملف','data-action="approve-media" data-id="'+m.id+'"'):'')+'</div></div>';
  }).join('');
  const enrollmentUpload='<section class="card"><h2>إضافة طالب إلى كتاب</h2><p>بعد إنشاء الطالب حسابه، انسخ User ID من صفحة درجاتي. يمكن إضافته لكل كتاب بصورة مستقلة.</p><div class="row"><input id="enroll-student-id" class="field" style="max-width:370px" placeholder="Student UUID" dir="ltr"><select id="enroll-book-id" class="field" style="max-width:310px">'+books.map(b=>'<option value="'+b.id+'">'+esc(b.title)+'</option>').join('')+'</select>'+button('تسجيل الطالب','data-action="enroll-student"')+'</div></section>';
- const sourceUpload='<section class="card"><h2>رفع صفحات الكتاب الأصلية — Private Storage</h2><p>ارفع ملفات WEBP بأسمائها الأصلية مثل ls-024.webp أو rw-034.webp. الملفات لا تُنشر في GitHub العام.</p><div class="row"><select id="source-book" class="field" style="max-width:280px"><option value="listening-speaking">Listening & Speaking</option><option value="reading-writing">Reading & Writing</option></select><input type="file" class="field" id="source-files" accept=".webp" multiple>'+button('رفع الصفحات','data-action="upload-sources"')+'</div><div id="source-upload-status" class="subtle"></div></section>';
+ const sourceUpload='<section class="card"><h2>صور الكتاب — رفع جماعي إلى التخزين الخاص</h2><p>تقدر ترفع ملف ZIP واحد فيه صور Unit 1 للكتابين، أو تختار صور WEBP منفصلة. النظام يوزّع صور الكتابين تلقائيًا من أسمائها، ومش بينشرها على GitHub.</p><div class="row"><select id="source-book" class="field" style="max-width:280px"><option value="listening-speaking">Listening & Speaking</option><option value="reading-writing">Reading & Writing</option></select><input type="file" class="field" id="source-files" accept=".webp,.zip" multiple aria-label="اختر ملف صور مضغوط أو صور منفردة">'+button('رفع صور الوحدة','data-action="upload-sources"')+'</div><p class="subtle">ملف ZIP ممكن يحتوي ls-016.webp وrw-016.webp معًا. الاسم هو اللي يحدد الكتاب تلقائيًا.</p><div id="source-upload-status" class="subtle" aria-live="polite"></div></section>';
  const mediaUpload='<section class="card"><h2>ملفات Unit 1 المطلوبة</h2><p>بمجرد رفع الملف يتحول إلى Uploaded؛ بعد مراجعة الجودة يتم اعتماده من لوحة الإدارة.</p><div class="list">'+mediaCards+'</div></section>';
  const tab=T.adminTab||'content';
  const tabs=[['content','الدروس والأسئلة'],['media','رفع الميديا'],['students','الطلاب'],['grading','تقييم المهام']];
