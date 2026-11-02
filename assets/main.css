@@ -408,3 +408,19 @@ body{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;font-size:16px;line
  .exercise-book-page>.textbook-figure{padding:9px}
  .textbook-exercises>.study-section-heading h2{font-size:19px}
 }
+
+
+/* Admin edit controls for book exercise solution samples */
+.admin-answers>#admin-model-filter{max-width:520px;margin:12px 0 18px;direction:auto;text-align:start}
+.admin-model-book{border:1px solid #dce6ef;border-radius:12px;margin:12px 0;overflow:hidden}
+.admin-model-book>summary{padding:14px 16px;background:#f6f9fc;cursor:pointer;font-weight:800;color:#274a69;list-style:none}
+.admin-model-book>summary::-webkit-details-marker{display:none}
+.admin-model-list{padding:13px;display:grid;gap:13px}
+.admin-model-row{border:1px solid #e4eaf0;border-radius:12px;padding:14px;background:#fff}
+.admin-model-row[hidden]{display:none!important}
+.admin-model-row h3{font-size:15px;color:#214760;margin:2px 0 3px}
+.admin-model-row p{color:#697e91;font-size:12px;margin:1px 0 8px}
+.admin-model-row .field.textarea{min-height:105px;max-height:250px;font-size:13px;line-height:1.9;direction:auto;text-align:start}
+.admin-model-row .row{margin-top:10px}
+.admin-model-row .tag{margin-bottom:8px}
+@media(max-width:650px){.admin-answers{padding:15px}.admin-model-list{padding:9px}.admin-model-row{padding:11px}}
