@@ -307,3 +307,46 @@ body{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;font-size:16px;line
 .book-units .unit-status{font-size:11px;color:#6d8197;font-weight:700}
 .book-units .unit-card.is-featured .unit-status{color:#1e6a96}
 @media(max-width:760px){.book-units{padding:17px}.book-units .grid8{grid-template-columns:repeat(2,minmax(0,1fr))}.hero{padding:20px}}
+
+
+/* BOOK-FIRST lesson flow: licensed original page cuts and pedagogical annotations */
+.book-first-chapter{display:grid;gap:18px}
+.book-first-intro{padding:16px 19px;background:#f0f5f9;border:1px solid #dce8f1;border-radius:14px}
+.book-first-intro h2{font-size:20px;color:#1d466a;margin:4px 0 6px}
+.book-first-intro p{font-size:13.5px;line-height:1.85;color:#536e84;margin:0}
+.book-first-step{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:0;align-items:stretch;background:#fff;border:1px solid #dfe7ee;border-radius:16px;overflow:hidden;box-shadow:0 4px 17px rgba(19,48,75,.025)}
+.textbook-figure{background:#fff;min-width:0;display:flex;flex-direction:column;justify-content:start;padding:16px;border-inline-end:1px solid #e6edf2}
+.textbook-figure-top{display:flex;align-items:center;justify-content:space-between;gap:7px;flex-wrap:wrap;margin-bottom:11px}
+.textbook-source-badge{font-size:12px;color:#826122;background:#fbf4df;border-radius:99px;padding:4px 10px;font-weight:750}
+.textbook-focus-label{font-size:10.5px;color:#8b97a3}
+.source-cut{position:relative;width:100%;overflow:hidden;background:#f5f5f2;border:1px solid #e5e6de;border-radius:8px;isolation:isolate}
+.source-cut>img{display:block;width:100%;max-width:none;height:auto;position:relative;transform-origin:top left}
+.source-cut-loading,.source-cut-error{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;background:#f6f8fa;color:#8492a0;padding:12px;font-size:13px;text-align:center;z-index:1}
+.source-cut-error{background:#fcfaf7;color:#826326}
+.textbook-figure-foot{display:flex;justify-content:center;align-items:center;padding-top:11px}
+.textbook-figure-foot .button{border:1px solid #cddce8;background:#f7fafc;font-size:11.5px;min-height:36px;padding:6px 12px;color:#235c86}
+.book-teacher-note{padding:21px 20px;background:#fcfdff;min-width:0}
+.book-teacher-number{font-size:11px;font-weight:850;color:#986b25;letter-spacing:.01em;margin:0 0 9px}
+.book-teacher-note h3{font-size:17px;color:#1d3c58;margin:0 0 12px;line-height:1.6}
+.book-teacher-note>p{font-size:14px;color:#40586c;line-height:2;margin:0 0 13px}
+.book-teacher-note .sample{margin:11px 0;padding:11px;font-size:14px;background:#eaf2f9}
+.book-teacher-note .learning-tip{padding:11px;margin:11px 0;font-size:13px}
+.book-teacher-note .compare-example{padding:10px;margin:12px 0;font-size:13px;background:#fff8eb}
+.book-teacher-source{border-top:1px dashed #e2e9f0;padding-top:11px;margin-top:18px;font-size:11.5px;color:#889aa8}
+.book-practice-source{margin:0 0 22px;border:1px solid #dce5ef;border-radius:12px;background:#fafcff;padding:15px;display:grid;gap:12px}
+.book-practice-source h3{margin:4px 0 2px;font-size:16px;color:#214b70}
+.book-practice-source p{font-size:13px;color:#688095;margin:0}
+.book-practice-source .textbook-figure{max-width:100%;border:0;border-top:1px solid #e2eaf1;background:transparent;padding:12px 0 0}
+.book-practice-source .source-cut{max-width:720px;margin-inline:auto}
+.book-practice-source .textbook-figure-foot{padding:10px 0 0}
+@media(max-width:1020px){.book-first-step{grid-template-columns:minmax(0,1fr)}.book-first-step>.textbook-figure{border-inline-end:0;border-bottom:1px solid #e6edf2}.book-first-step>.book-teacher-note{padding:18px}}
+@media(min-width:1021px){.book-first-step>.textbook-figure{align-self:stretch}.book-first-step>.book-teacher-note{display:flex;flex-direction:column}.book-teacher-note .book-teacher-source{margin-top:auto}}
+@media(max-width:770px){
+ .book-first-intro{padding:13px 15px}
+ .book-first-intro h2{font-size:18px}
+ .book-first-step{border-radius:13px}
+ .book-first-step>.textbook-figure{padding:12px}
+ .book-first-step>.book-teacher-note{padding:16px}
+ .book-teacher-note h3{font-size:16px}
+ .textbook-source-badge{font-size:11px}
+}
