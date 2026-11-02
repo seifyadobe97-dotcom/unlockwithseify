@@ -97,20 +97,20 @@ async function lessonPage(id){
  const readingItems=Array.isArray(guidance.verified_source_readings)?guidance.verified_source_readings:[];
  const originalReadings=readingItems.length?'<section class="card" style="margin-bottom:15px"><h2>نص القراءة من الكتاب</h2>'+readingItems.map(x=>'<article class="study-block"><div class="source-ref">صفحة الكتاب '+printPage(x.page)+'</div><h3 class="en">'+esc(x.heading||'Reading')+'</h3><div class="en original-text">'+esc(x.text||'')+'</div></article>').join('')+'</section>':'';
  const scripts=Array.isArray(guidance.original_scripts)?guidance.original_scripts:[];
- const scriptExtract=scripts.length?'<section class="card" style="margin-bottom:15px"><h2>Video & Audio Scripts — Unit 1</h2><div class="notice warning">النصوص هنا للدراسة النصية فقط. القراءة ليست بديلًا عن اختبار Listening أو Watching، ويتم نشر الميديا الأصلية لاحقًا.</div>'+scripts.map(x=>'<article class="study-block"><div class="source-ref">صفحة الكتاب '+printPage(x.page)+'</div><h3 class="en">'+esc(x.label)+'</h3><div class="en original-text">'+esc(x.text)+'</div></article>').join('')+'</section>':typeof guidance.source_excerpt==='string'&&guidance.source_excerpt?'<section class="card"><h2>Script Study — مقتطفات</h2><div class="en original-text">'+esc(guidance.source_excerpt)+'</div></section>':'';
+ const scriptExtract=scripts.length?'<details class="card compact-panel" id="script-study"><summary>اقرأ سكريبتات الوحدة <span class="tag">تدريب قراءة</span></summary><div class="notice warning">ده تدريب على النص المكتوب فقط؛ مش درجة Listening أو Watching.</div>'+scripts.map(x=>'<article class="study-block"><div class="source-ref">'+bookPageLabel(x.page)+'</div><h3 class="en">'+esc(x.label)+'</h3><div class="en original-text">'+esc(x.text)+'</div></article>').join('')+'</details>':
+ typeof guidance.source_excerpt==='string'&&guidance.source_excerpt?'<details class="card compact-panel"><summary>نصوص Script Study</summary><div class="en original-text">'+esc(guidance.source_excerpt)+'</div></details>':'';
  const scriptRefs=Array.isArray(guidance.audio_script_cross_refs)?guidance.audio_script_cross_refs:[];
- const scriptReferences=scriptRefs.length?'<section class="card" style="margin-bottom:15px"><h2>أماكن السكريبتات الأخرى في الكتاب</h2><div class="list">'+scriptRefs.map(x=>'<div class="lesson-card"><span class="en">Track '+esc(x.track)+'</span><span>صفحة الكتاب '+esc(x.printed_page||printPage(x.pdf_page))+'</span>'+button('افتح صفحة المصدر','data-action="source-page" data-page="'+Number(x.pdf_page)+'"')+'</div>').join('')+'</div></section>':'';
- const vocabularyPanel=(lessonWords||[]).length?'<section class="card" style="margin-top:15px"><h2>قاموس الجزء — Part Vocabulary</h2><div class="vocab">'+lessonWords.map(w=>'<article class="word"><strong class="en">'+esc(w.term)+'</strong><div class="subtle en">'+esc(w.pronunciation_ipa||'')+' · '+esc(w.part_of_speech||'')+'</div><div>'+esc(w.meaning_ar||'')+'</div><div class="en definition">'+esc(w.definition_en||'')+'</div><div class="source-ref">Wordlist ص 35 · Glossary ص '+printPage(w.glossary_pdf_page)+'</div></article>').join('')+'</div></section>':'';
- const sourceIndex='<section class="card" style="margin-top:15px"><h2>تمارين الكتاب حسب الصفحة والجزء</h2><p>كل بطاقة موضح فيها موضع النشاط في الكتاب. بطاقة الشرح والتطبيق الإضافي ليست بديلًا عن النص الأصلي الموجود بالصفحة.</p>'+((sourceExercises||[]).map((x,i)=>{
-  const waiting=x.grading_mode==='media-awaited';
-  const ans=answerMap[x.id];
-  const disabled=ans?.response_status==='submitted';
-  return '<article class="study-block"><div class="row" style="justify-content:space-between"><div><div class="source-ref">صفحة الكتاب '+printPage(x.pdf_page)+' · '+esc(x.activity_label)+'</div><h3 class="en">'+esc(x.source_title)+'</h3></div><span class="tag '+(waiting?'draft':'ok')+'">'+(waiting?'سيتم النشر':'تطبيق مرتبط بالكتاب')+'</span></div><p>'+esc(x.instruction_ar||'راجع القسم المحدد في صفحة الكتاب.')+'</p>'
-   +(waiting?'<div class="notice warning">سيتم النشر بمجرد رفع الملف الأصلي واعتماده من لوحة الإدارة.</div>':
-   (T.user&&!T.admin?'<textarea class="field textarea" dir="auto" data-exercise-answer="'+x.id+'" maxlength="16000" placeholder="اكتب إجابتك أو ملاحظاتك هنا" '+(disabled?'readonly':'')+'>'+esc(ans?.response_text||'')+'</textarea><div class="row">'+(disabled?badge('submitted'):button('حفظ الإجابة','data-action="save-exercise" data-id="'+x.id+'"')+button('تسليم للمدرس','data-action="submit-exercise" data-id="'+x.id+'"'))+'</div>':'<div class="subtle">معاينة الأدمن: صفحة '+printPage(x.pdf_page)+' من الكتاب · نشاط مفتوح للمراجعة</div>'))
-   +(ans?.review?'<div class="feedback"><strong>مراجعة المدرس'+(ans.review.score!==null?' · '+ans.review.score+'/100':'')+'</strong><p>'+esc(ans.review.feedback_ar)+'</p></div>':'')+'</article>';
- }).join('')||'<div class="empty">لم يُسجل نشاط أصلي لهذا الجزء بعد.</div>')+'</section>';
-  const missing=['audio','video'].includes(l.kind);
+ const scriptReferences=scriptRefs.length?'<details class="card compact-panel"><summary>أماكن السكريبتات الأخرى في الكتاب</summary><div class="list">'+scriptRefs.map(x=>'<div class="lesson-card"><span class="en">Track '+esc(x.track)+'</span><span>صفحة '+esc(x.printed_page||printPage(x.pdf_page))+' من الكتاب</span>'+button('عرض الصفحة','data-action="source-page" data-page="'+Number(x.pdf_page)+'"')+'</div>').join('')+'</div></details>':'';
+ const vocabularyPanel=(lessonWords||[]).length?'<details class="card compact-panel" id="lesson-vocabulary"><summary>قاموس كلمات الدرس <span class="tag">'+lessonWords.length+' كلمة</span></summary><div class="vocab">'+lessonWords.map(w=>'<article class="word"><strong class="en">'+esc(w.term)+'</strong><div class="subtle en">'+esc(w.pronunciation_ipa||'')+' · '+esc(w.part_of_speech||'')+'</div><div>'+esc(w.meaning_ar||'')+'</div><div class="en definition">'+esc(w.definition_en||'')+'</div><div class="source-ref">Wordlist ص 35 · Glossary ص '+printPage(w.glossary_pdf_page)+'</div></article>').join('')+'</div></details>':'';
+ const sourceIndex='<details class="card compact-panel" id="original-exercises"><summary>أنشطة الكتاب الأصلية <span class="tag">'+(sourceExercises||[]).length+' نشاطًا</span></summary><p>كل نشاط مع رقم الصفحة المطبوعة. الأنشطة المفتوحة احفظ إجابتك أو سلّمها للمدرس، والميديا الناقصة يظهر مكانها «سيتم النشر».</p>'+
+ ((sourceExercises||[]).map((x,i)=>{
+  const waiting=x.grading_mode==='media-awaited',ans=answerMap[x.id],submitted=ans?.response_status==='submitted';
+  return '<article class="study-block indexed-task"><div class="row task-head"><div><div class="source-ref">'+bookPageLabel(x.pdf_page)+' · '+esc(x.activity_label)+'</div><h3>'+esc(x.source_title)+'</h3></div><span class="tag '+(waiting?'draft':'ok')+'">'+(waiting?'سيتم النشر':'مهمة الكتاب')+'</span></div><p>'+esc(x.instruction_ar||'راجع تعليمات النشاط بصفحة الكتاب، ثم طبّقها هنا.')+'</p>'
+    +(waiting?'<div class="notice warning">سيتم النشر بمجرد رفع الصوت أو الفيديو الأصلي من لوحة الإدارة.</div>':
+       T.user&&!T.admin?'<textarea class="field textarea" dir="auto" data-exercise-answer="'+x.id+'" maxlength="16000" placeholder="اكتب إجابتك أو ملاحظاتك هنا" '+(submitted?'readonly':'')+'>'+esc(ans?.response_text||'')+'</textarea><div class="row task-actions">'+(submitted?badge('submitted'):button('حفظ مسودة','data-action="save-exercise" data-id="'+x.id+'"')+button('تسليم للمدرس','data-action="submit-exercise" data-id="'+x.id+'"'))+'</div>':'<div class="subtle">يمكن للطالب كتابة الإجابة وتسليمها للمراجعة.</div>')
+    +(ans?.review?'<div class="feedback"><strong>مراجعة المدرس'+(ans.review.score!==null?' · '+ans.review.score+'/100':'')+'</strong><p>'+esc(ans.review.feedback_ar)+'</p></div>':'')+'</article>';
+ }).join('')||'<div class="empty">لا توجد أنشطة مفهرسة في هذا القسم.</div>')+'</details>';
+ const missing=['audio','video'].includes(l.kind);
  let mediaPanel='';
  if(missing){
   const {data:assets,error:mediaError}=await db.from('media_assets').select('id,kind,original_track,storage_path,asset_status').eq('lesson_id',id).order('original_track');
@@ -141,7 +141,25 @@ async function lessonPage(id){
  const data=response?await response.json().catch(()=>({})):{};
  const slot=box.querySelector('.feedback-slot');
  if(!response?.ok){slot.innerHTML='<div class="feedback bad">تعذر التصحيح: '+esc(data.error||'تأكد من اكتمال نشر النشاط أو صلاحية حسابك')+'</div>';return;}
- slot.innerHTML='<div class="feedback '+(data.correct?'':'bad')+'"><strong>'+(data.correct?'✓ إجابتك صحيحة':'✕ إجابتك غير صحيحة')+'</strong><p>'+esc(data.correct?(data.explanation?.general||'إجابتك صحيحة'):(data.explanation?.wrong?.[String(answer)]||data.explanation?.incorrect||data.explanation?.general||'راجع القاعدة أو النص الأصلي'))+'</p>'+(data.correct?'':'<p><strong>الإجابة الصحيحة:</strong> <span class="en">'+esc(data.answer?.index!==undefined?box.querySelectorAll('.choice span')[data.answer.index]?.textContent:data.answer?.text||'')+'</span></p>')+'</div>';
+ const chosen=selected?selected.closest('.choice')?.querySelector('span')?.textContent:free?.value||'';
+ const correctText=data.answer?.index!==undefined?
+  (box.querySelectorAll('.choice span')[data.answer.index]?.textContent||''):
+  String(data.answer?.text||'');
+ const specific=data.explanation?.wrong?.[String(answer)];
+ const why=data.correct?
+  (data.explanation?.general||'الإجابة صحيحة؛ راجع القاعدة للتثبيت.'):
+  (specific||data.explanation?.incorrect||data.explanation?.general||'راجع سياق السؤال والقاعدة المستخدمة.');
+ box.querySelectorAll('.choice').forEach((x,i)=>{
+   x.classList.toggle('answer-correct',i===data.answer?.index);
+   x.classList.toggle('answer-wrong',!data.correct&&i===answer);
+ });
+ slot.innerHTML='<div class="feedback answer-feedback '+(data.correct?'good':'bad')+'">'+
+ '<strong>'+(data.correct?'✓ ممتاز! إجابة صحيحة':'✕ الإجابة دي مش صحيحة')+'</strong>'+
+ (!data.correct?'<p><b>إجابتك:</b> <span class="en">'+esc(chosen)+'</span></p>':'')+
+ '<p><b>الحل الصحيح:</b> <span class="en">'+esc(correctText)+'</span></p>'+
+ '<div class="feedback-reason"><b>ليه؟</b> '+esc(why)+'</div>'+
+ (data.correct?'<p class="subtle">كمّل على السؤال اللي بعده.</p>':'<p class="subtle">اقرأ سبب الاختيار، وبعدها جرّب سؤالًا مشابهًا.</p>')+
+ '</div>';
 }
 
 
