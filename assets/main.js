@@ -126,7 +126,7 @@ async function lessonPage(id){
     (x.en?'<div class="en sample">'+esc(x.en)+'</div>':'')+
     (x.wrong?'<div class="compare-example"><strong>الفرق بين الصح والغلط:</strong><span class="en">'+esc(x.wrong)+'</span></div>':'')+
     (x.tip?'<div class="learning-tip"><strong>ركّز هنا:</strong> '+esc(x.tip)+'</div>':'')+
-    '<div class="book-teacher-source">المرجع: ص '+printPage(x.source_clip?.page||x.page||pages[Math.min(i,pages.length-1)]||pages[0])+' من الكتاب المطبوع</div></div></article>').join('')+
+    '<div class="book-teacher-source">المرجع: ص '+printPage(x.source_clip?.page||x.page||pages[Math.min(i,pages.length-1)]||pages[0])+' من الكتاب المطبوع</div>'+((sourceExercises||[]).some(e=>Number(e.pdf_page)===Number(x.source_clip?.page||x.page||pages[Math.min(i,pages.length-1)]||pages[0]))?button('طبّق تمارين نفس الصفحة','data-action="study-exercises-page" data-page="'+Number(x.source_clip?.page||x.page||pages[Math.min(i,pages.length-1)]||pages[0])+'"'):'')+'</div></article>').join('')+
    '</section>':'';
   const readingItems=Array.isArray(guidance.verified_source_readings)?guidance.verified_source_readings:[];
  const originalReadings=readingItems.length?'<section class="card" style="margin-bottom:15px"><h2>نص القراءة من الكتاب</h2>'+readingItems.map(x=>'<article class="study-block"><div class="source-ref">صفحة الكتاب '+printPage(x.page)+'</div><h3 class="en">'+esc(x.heading||'Reading')+'</h3><div class="en original-text">'+esc(x.text||'')+'</div></article>').join('')+'</section>':'';
