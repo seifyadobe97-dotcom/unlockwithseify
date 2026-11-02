@@ -15,7 +15,7 @@ const crumb=(...parts)=>'<div class="crumbs">'+parts.map(s=>'<span>'+esc(s)+'</s
 const sourceAlert='<p class="source-rights">صفحات الكتاب والصوتيات الأصلية تُتاح بعد رفعها واعتمادها للحسابات المصرح لها.</p>';
 const printPage=p=>Number.isFinite(Number(p))&&Number(p)>2?String(Number(p)-2):'—';
 const bookPageLabel=p=>'صفحة '+printPage(p)+' في الكتاب';
-const questionLabel=(a,i)=>{const p=a.prompt||{},ref=String(a.source_reference||'');const origin=String(p.origin||'');const kind=p.mode==='script_study'?'على السكريبت':(origin.includes('cambridge')||/-e\d+(?:-|$)/i.test(ref))?'من الكتاب':'تدريب داعم';const match=ref.match(/-e(\d+)(?:-|$)/i);return 'سؤال '+(i+1)+' · '+kind+(match?' · تمرين '+match[1]:'')+(p.pdf_page?' · '+bookPageLabel(p.pdf_page):'');};
+const questionLabel=(a,i)=>{const p=a.prompt||{},ref=String(a.source_reference||'');const origin=String(p.origin||'');const kind=p.mode==='script_study'?'على السكريبت':origin==='cambridge-digitized'?'من الكتاب':'تدريب داعم';const match=ref.match(/-e(\d+)(?:-|$)/i);return 'سؤال '+(i+1)+' · '+kind+(match?' · تمرين '+match[1]:'')+(p.pdf_page?' · '+bookPageLabel(p.pdf_page):'');};
 function frame(title,subtitle,inner){root.innerHTML='<section class="hero"><span class="eyebrow">UNLOCK LEVEL 1 · WITH SEIFY</span><h1>'+esc(title)+'</h1><p>'+esc(subtitle)+'</p></section>'+inner;}
 function menu(){sessEl.innerHTML=T.user?'<span class="subtle">'+esc(T.user.email)+'</span> '+(T.admin?button('رفع صور الكتاب','data-action="admin-images"')+button('لوحة الإدارة','data-action="admin"'):button('درجاتي','data-action="results"'))+button('تسجيل الخروج','data-action="logout"'):'<button class="nav-btn" data-action="login">دخول الطلاب</button>';}
 function home(){
