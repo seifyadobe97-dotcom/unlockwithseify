@@ -116,7 +116,7 @@ async function lessonPage(id){
   const height=Math.max(80,bottom-top);
   return '<div class="textbook-figure '+extraClass+'"><div class="textbook-figure-top"><span class="textbook-source-badge">من صفحة الكتاب · ص '+printPage(sourcePage)+'</span>'+(verified?'<span class="textbook-focus-label">الجزء المرتبط بالشرح</span>':'<span class="textbook-focus-label">الصفحة الأصلية</span>')+'</div>'+
    '<div class="source-cut" data-pdf-page="'+sourcePage+'" data-top="'+top+'" data-bottom="'+bottom+'" style="aspect-ratio:1150 / '+height+'"><div class="source-cut-loading">جاري إظهار صفحة الكتاب…</div></div>'+
-   '<div class="textbook-figure-foot">'+button('شوف الصفحة كاملة','data-action="study-source-full" data-page="'+sourcePage+'"')+'</div></div>';
+   '<div class="textbook-figure-foot">'+button('كبّر الجزء ده','data-action="study-crop-zoom"')+button('شوف الصفحة كاملة','data-action="study-source-full" data-page="'+sourcePage+'"')+'</div></div>';
  };
  const expandedGuide=learningBlocks.length?
    '<section class="book-first-chapter" id="lesson-explanation"><div class="book-first-intro"><span class="study-section-kicker">الكتاب قدامك · وهنشرح عليه</span><h2>اقرأ الجزء ده من الكتاب، وبعدها افهمه</h2><p>كل صورة من صفحات الكتاب الأصلية، والشرح اللي جنبها بيوضح الفكرة من غير ما يغيّر النص.</p></div>'+
@@ -234,6 +234,25 @@ async function loadSourceCut(el){
  }catch(error){
   if(el.isConnected)el.innerHTML='<div class="source-cut-error"><span>تعذر عرض الصفحة '+printPage(page)+'</span>'+button('أعد المحاولة','data-action="retry-source-cut"')+'</div>';
  }finally{el.dataset.loading='0';}
+}
+
+function openSourceZoom(buttonElement){
+ const figure=buttonElement?.closest('.textbook-figure');
+ const cut=figure?.querySelector('.source-cut');
+ if(!cut)return;
+ if(!cut.querySelector('img')){loadSourceCut(cut);notice('جاري تجهيز الصورة، اضغط على تكبير بعد ظهورها.');return;}
+ document.getElementById('source-cut-dialog')?.remove();
+ const dialog=document.createElement('dialog');
+ dialog.className='crop-zoom-dialog';
+ dialog.id='source-cut-dialog';
+ dialog.innerHTML='<div class="crop-zoom-header"><strong>تكبير الجزء من صفحة الكتاب</strong><button type="button" class="button" data-action="close-source-zoom">إغلاق</button></div><p>حرّك الصورة يمينًا ويسارًا لقراءة النص بوضوح. دي قصاصة من النسخة الأصلية، من غير تغيير.</p><div class="crop-zoom-scroll"></div>';
+ const clone=cut.cloneNode(true);
+ clone.classList.add('zoomed-cut');
+ clone.removeAttribute('data-loading');
+ dialog.querySelector('.crop-zoom-scroll').appendChild(clone);
+ document.body.appendChild(dialog);
+ dialog.addEventListener('close',()=>dialog.remove(),{once:true});
+ dialog.showModal();
 }
 function initializeSourceCuts(){
  const slices=[...document.querySelectorAll('.student-workspace .source-cut')];
@@ -706,7 +725,7 @@ async function adminUpdate(el){
 document.addEventListener('click',async e=>{
  const el=e.target.closest('button[data-action]');if(!el)return;
  const act=el.dataset.action;
- try{if(act==='home')home();else if(act==='study-tab')showStudyTab(el.dataset.tab);else if(act==='study-source-full'){showStudyTab('book');const d=document.getElementById('book-sources');if(d)d.open=true;await sourcePage(Number(el.dataset.page));}else if(act==='retry-source-cut')await loadSourceCut(el.closest('.source-cut'));else if(act==='quiz-nav')navigateQuestion(Number(el.dataset.step));else if(act==='admin')await adminPage();else if(act==='admin-images'){T.adminTab='images';window.location.hash='upload-images';await adminPage();document.getElementById('admin-source-upload')?.scrollIntoView({block:'start',behavior:'smooth'});}else if(act==='admin-preview-book')await bookPage(el.dataset.id);else if(act==='admin-tab'){T.adminTab=el.dataset.tab;await adminPage();}else if(act==='reviews')await reviewsPage();else if(act==='review-exercises')await reviewIndexedExercisesPage();else if(act==='save-indexed-feedback')await saveIndexedFeedback(el.dataset.id);else if(act==='save-review')await saveReview(el.dataset.id);else if(act==='results')await resultsPage();else if(act==='play-media')await playMedia(el.dataset.id);else if(act==='source-page')await sourcePage(el.dataset.page);else if(act==='save-exercise')await saveIndexedExercise(el.dataset.id,false);else if(act==='submit-exercise')await saveIndexedExercise(el.dataset.id,true);else if(act==='save-work')await saveWork(false);else if(act==='submit-work')await saveWork(true);else if(act==='admin-update')await adminUpdate(el);else if(act==='enroll-student')await enrollStudent();else if(act==='upload-media')await uploadMedia(el.dataset.id);else if(act==='approve-media')await approveMedia(el.dataset.id);else if(act==='upload-sources')await uploadSources();else if(act==='login')authPage();else if(act==='signup')authPage(true);else if(act==='logout'){await db.auth.signOut();await refresh(true)}else if(act==='book')await bookPage(el.dataset.id||T.book?.id);else if(act==='unit')await unitPage(el.dataset.id);else if(act==='lesson')await lessonPage(el.dataset.id);else if(act==='grade')await grade(el.dataset.id,el);}catch(err){notice('خطأ غير متوقع: '+err.message,'warning');}
+ try{if(act==='home')home();else if(act==='study-tab')showStudyTab(el.dataset.tab);else if(act==='study-crop-zoom')openSourceZoom(el);else if(act==='close-source-zoom')document.getElementById('source-cut-dialog')?.close();else if(act==='study-source-full'){showStudyTab('book');const d=document.getElementById('book-sources');if(d)d.open=true;await sourcePage(Number(el.dataset.page));}else if(act==='retry-source-cut')await loadSourceCut(el.closest('.source-cut'));else if(act==='quiz-nav')navigateQuestion(Number(el.dataset.step));else if(act==='admin')await adminPage();else if(act==='admin-images'){T.adminTab='images';window.location.hash='upload-images';await adminPage();document.getElementById('admin-source-upload')?.scrollIntoView({block:'start',behavior:'smooth'});}else if(act==='admin-preview-book')await bookPage(el.dataset.id);else if(act==='admin-tab'){T.adminTab=el.dataset.tab;await adminPage();}else if(act==='reviews')await reviewsPage();else if(act==='review-exercises')await reviewIndexedExercisesPage();else if(act==='save-indexed-feedback')await saveIndexedFeedback(el.dataset.id);else if(act==='save-review')await saveReview(el.dataset.id);else if(act==='results')await resultsPage();else if(act==='play-media')await playMedia(el.dataset.id);else if(act==='source-page')await sourcePage(el.dataset.page);else if(act==='save-exercise')await saveIndexedExercise(el.dataset.id,false);else if(act==='submit-exercise')await saveIndexedExercise(el.dataset.id,true);else if(act==='save-work')await saveWork(false);else if(act==='submit-work')await saveWork(true);else if(act==='admin-update')await adminUpdate(el);else if(act==='enroll-student')await enrollStudent();else if(act==='upload-media')await uploadMedia(el.dataset.id);else if(act==='approve-media')await approveMedia(el.dataset.id);else if(act==='upload-sources')await uploadSources();else if(act==='login')authPage();else if(act==='signup')authPage(true);else if(act==='logout'){await db.auth.signOut();await refresh(true)}else if(act==='book')await bookPage(el.dataset.id||T.book?.id);else if(act==='unit')await unitPage(el.dataset.id);else if(act==='lesson')await lessonPage(el.dataset.id);else if(act==='grade')await grade(el.dataset.id,el);}catch(err){notice('خطأ غير متوقع: '+err.message,'warning');}
 });
 document.addEventListener('input',e=>{if(e.target?.id==='unit-word-search'){const q=e.target.value.trim().toLocaleLowerCase();document.querySelectorAll('#unit-word-list .word').forEach(el=>{el.hidden=!el.textContent.toLocaleLowerCase().includes(q)});}});
 document.getElementById('nav-home').addEventListener('click',home);
