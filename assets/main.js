@@ -87,14 +87,14 @@ async function lessonPage(id){
   else if(['ordering','gap_fill','short_answer'].includes(a.kind))form='<input class="field" type="text" data-response="'+a.id+'" placeholder="Write your answer" lang="en">';
   else form='<div class="notice">نشاط مفتوح أو يحتاج مراجعة مدرس، ولا يقبل تصحيحًا آليًا قاطعًا.</div>';
   const canGrade=['mcq','true_false','ordering','gap_fill','short_answer'].includes(a.kind);
-  return '<article class="quiz" data-question-id="'+a.id+'"><div class="source-ref">'+esc(questionLabel(a,i))+'</div><div class="question">'+esc(prompt)+'</div>'+form+(canGrade?'<button class="button primary small" data-action="grade" data-id="'+a.id+'">اعرف الحل والسبب</button>':'')+'<div class="feedback-slot" role="status"></div></article>';
+  return '<article class="quiz" data-question-id="'+a.id+'" data-book-origin="'+esc(a.prompt?.origin||'')+'" data-book-pdf-page="'+Number(a.prompt?.pdf_page||0)+'" data-book-ref="'+esc(a.source_reference||'')+'"><div class="source-ref">'+esc(questionLabel(a,i))+'</div><div class="question">'+esc(prompt)+'</div>'+form+(canGrade?'<button class="button primary small" data-action="grade" data-id="'+a.id+'">اعرف الحل والسبب</button>':'')+'<div class="feedback-slot" role="status"></div></article>';
  }).join('');
  const guidance=l.content||{};
  const guide='<section class="card" style="margin-bottom:15px"><h2>شرح وتوجيه لغوي</h2><div>'+esc(guidance.teaching_note_ar||'راجع خطوات الدرس والمفردات قبل الحل.')+'</div>'+(Array.isArray(guidance.examples)&&guidance.examples.length?'<div class="en" style="margin-top:12px">'+guidance.examples.map(x=>'<p>'+esc(x)+'</p>').join('')+'</div>':'')+'<div class="subtle">توضيحات تعليمية من إعداد المعهد، منفصلة عن محتوى Cambridge الأصلي.</div></section>';
  const pages=Array.isArray(guidance.source_pages)?guidance.source_pages:[];
  const supplement=Array.isArray(guidance.supplementary_source_pages)?guidance.supplementary_source_pages:[];
  const sources='<details class="card compact-panel" id="book-sources"><summary>فين الدرس في الكتاب؟ <span class="subtle">ص '+pages.map(printPage).join('، ')+'</span></summary><p>اختار الصفحة لمشاهدة صورتها بعد رفعها من الإدارة.</p><div class="row">'+pages.map(p=>button('صفحة '+printPage(p),'data-action="source-page" data-page="'+Number(p)+'"')).join('')+'</div>'+(supplement.length?'<h3>ملحق Pairwork — Student A / B</h3><div class="row">'+supplement.map(p=>button('صفحة '+printPage(p),'data-action="source-page" data-page="'+Number(p)+'"')).join('')+'</div>':'')+'<div id="source-availability" aria-live="polite"></div></details>';
- const {data:sourceExercises,error:sourceError}=await db.from('exercise_registry').select('id,pdf_page,source_title,activity_label,grading_mode,publish_status,instruction_ar').eq('lesson_id',id).order('pdf_page');
+ const {data:sourceExercises,error:sourceError}=await db.from('exercise_registry').select('id,pdf_page,source_title,activity_label,grading_mode,publish_status,instruction_ar,model_answer_ar,answer_kind').eq('lesson_id',id).order('pdf_page');
  if(sourceError){notice(sourceError.message,'warning');return;}
  const {data:lessonWords}=await db.from('vocabulary').select('id,term,part_of_speech,meaning_ar,definition_en,pronunciation_ipa,glossary_pdf_page').eq(l.slug==='review'?'unit_id':'lesson_id',l.slug==='review'?T.unit.id:id).order('position');
  const answerMap={};
@@ -136,14 +136,48 @@ async function lessonPage(id){
  const scriptRefs=Array.isArray(guidance.audio_script_cross_refs)?guidance.audio_script_cross_refs:[];
  const scriptReferences=scriptRefs.length?'<details class="card compact-panel"><summary>أماكن السكريبتات الأخرى في الكتاب</summary><div class="list">'+scriptRefs.map(x=>'<div class="lesson-card"><span class="en">Track '+esc(x.track)+'</span><span>صفحة '+esc(x.printed_page||printPage(x.pdf_page))+' من الكتاب</span>'+button('عرض الصفحة','data-action="source-page" data-page="'+Number(x.pdf_page)+'"')+'</div>').join('')+'</div></details>':'';
  const vocabularyPanel=(lessonWords||[]).length?'<details class="card compact-panel" id="lesson-vocabulary"><summary>قاموس كلمات الدرس <span class="tag">'+lessonWords.length+' كلمة</span></summary><div class="vocab">'+lessonWords.map(w=>'<article class="word"><strong class="en">'+esc(w.term)+'</strong><div class="subtle en">'+esc(w.pronunciation_ipa||'')+' · '+esc(w.part_of_speech||'')+'</div><div>'+esc(w.meaning_ar||'')+'</div><div class="en definition">'+esc(w.definition_en||'')+'</div><div class="source-ref">Wordlist ص 35 · Glossary ص '+printPage(w.glossary_pdf_page)+'</div></article>').join('')+'</div></details>':'';
- const sourceIndex='<details class="card compact-panel" id="original-exercises"><summary>أنشطة الكتاب الأصلية <span class="tag">'+(sourceExercises||[]).length+' نشاطًا</span></summary><p>كل نشاط مع رقم الصفحة المطبوعة. الأنشطة المفتوحة احفظ إجابتك أو سلّمها للمدرس، والميديا الناقصة يظهر مكانها «سيتم النشر».</p>'+
+
+ const linkedExercise= (x,a)=>{
+  if(a.prompt?.origin!=='cambridge-digitized'||Number(a.prompt?.pdf_page)!==Number(x.pdf_page))return false;
+  const found=String(a.source_reference||'').match(/-e(\d+)(?:-|$)/i);
+  if(!found)return false;
+  const n=Number(found[1]);
+  const label=String(x.activity_label||'');
+  const range=label.match(/Exercises?\s+(\d+)\s*[–-]\s*(\d+)/i);
+  if(range)return n>=Number(range[1])&&n<=Number(range[2]);
+  const one=label.match(/Exercise\s+(\d+)(?!\d)/i);
+  return one&&n===Number(one[1]);
+ };
+ const mappedSourceQuestions=new Set((acts||[]).filter(a=>a.prompt?.origin==='cambridge-digitized'&&
+  (sourceExercises||[]).some(x=>linkedExercise(x,a))).map(a=>a.id));
+ const additionalQuestions=(acts||[]).filter(a=>!mappedSourceQuestions.has(a.id)).length;
+ const hasLinkedSource=mappedSourceQuestions.size>0;
+ const sourceIndex='<section class="card textbook-exercises" id="original-exercises">'+
+ '<div class="study-section-heading"><div><span class="study-section-kicker">من نفس صفحات الكتاب</span><h2>تمارين الكتاب وحلولها</h2><p>شوف التمرين من الصفحة الأصلية، جرّب الإجابة، وبعدها راجع التصحيح أو النموذج.</p></div><span class="study-pill">'+(sourceExercises||[]).length+' مجموعات</span></div>'+
  ((sourceExercises||[]).map((x,i)=>{
-  const waiting=x.grading_mode==='media-awaited',ans=answerMap[x.id],submitted=ans?.response_status==='submitted';
-  return '<article class="study-block indexed-task"><div class="row task-head"><div><div class="source-ref">'+bookPageLabel(x.pdf_page)+' · '+esc(x.activity_label)+'</div><h3>'+esc(x.source_title)+'</h3></div><span class="tag '+(waiting?'draft':'ok')+'">'+(waiting?'سيتم النشر':'مهمة الكتاب')+'</span></div><p>'+esc(x.instruction_ar||'راجع تعليمات النشاط بصفحة الكتاب، ثم طبّقها هنا.')+'</p>'
-    +(waiting?'<div class="notice warning">سيتم النشر بمجرد رفع الصوت أو الفيديو الأصلي من لوحة الإدارة.</div>':
-       T.user&&!T.admin?'<textarea class="field textarea" dir="auto" data-exercise-answer="'+x.id+'" maxlength="16000" placeholder="اكتب إجابتك أو ملاحظاتك هنا" '+(submitted?'readonly':'')+'>'+esc(ans?.response_text||'')+'</textarea><div class="row task-actions">'+(submitted?badge('submitted'):button('حفظ مسودة','data-action="save-exercise" data-id="'+x.id+'"')+button('تسليم للمدرس','data-action="submit-exercise" data-id="'+x.id+'"'))+'</div>':'<div class="subtle">يمكن للطالب كتابة الإجابة وتسليمها للمراجعة.</div>')
-    +(ans?.review?'<div class="feedback"><strong>مراجعة المدرس'+(ans.review.score!==null?' · '+ans.review.score+'/100':'')+'</strong><p>'+esc(ans.review.feedback_ar)+'</p></div>':'')+'</article>';
- }).join('')||'<div class="empty">لا توجد أنشطة مفهرسة في هذا القسم.</div>')+'</details>';
+  const waiting=x.answer_kind==='media_pending'||x.grading_mode==='media-awaited';
+  const ans=answerMap[x.id],submitted=ans?.response_status==='submitted';
+  const linked=(acts||[]).filter(a=>linkedExercise(x,a));
+  const originalCount=linked.length;
+  const hasSample=Boolean(x.model_answer_ar)&&['instructor_sample','objective_linked'].includes(x.answer_kind);
+  const status=waiting?'الصوت أو الفيديو سيتم نشره':originalCount?'تصحيح تلقائي مع تفسير':hasSample?'إجابة نموذجية متاحة':'الحل قيد المراجعة';
+  const rawPage=Number(x.pdf_page);
+  const isGrammarOriginal=originalCount>0;
+  const cropTop=isGrammarOriginal?x.pdf_page===24?510:90:0;
+  const cropBottom=isGrammarOriginal?x.pdf_page===24?1460:1370:1545;
+  const imagePreview='<details class="exercise-book-page"><summary>شوف صورة التمرين من الكتاب · ص '+printPage(rawPage)+'</summary><div class="textbook-figure"><div class="source-cut" data-pdf-page="'+rawPage+'" data-top="'+cropTop+'" data-bottom="'+cropBottom+'" style="aspect-ratio:1150 / '+(cropBottom-cropTop)+'"><div class="source-cut-loading">جاري تجهيز صورة الصفحة…</div></div><div class="textbook-figure-foot">'+button('افتح الصفحة كاملة','data-action="study-source-full" data-page="'+rawPage+'"')+'</div></div></details>';
+  const model=hasSample?'<details class="exercise-model-answer"><summary>اعرض نموذج إجابة بعد المحاولة</summary><div class="exercise-answer-content"><span>نموذج من إعداد المعهد — وليس مفتاح Cambridge الرسمي</span><p>'+esc(x.model_answer_ar)+'</p></div></details>':'';
+  const attempt=waiting?'<div class="exercise-status-note">التمرين ده محتاج الملف الأصلي. مش هنحسب درجة قبل ما يتوفر.</div>':
+   originalCount?'<div class="book-original-intro"><strong>'+originalCount+' سؤال من التمرين الأصلي</strong><p>اختار إجابتك في الأسئلة التالية، واضغط «اعرف الحل والسبب» لكل سؤال.</p></div><div class="source-linked-questions" data-source-quiz-group="'+x.id+'"></div>':
+    (T.user&&!T.admin?'<textarea class="field textarea" dir="auto" data-exercise-answer="'+x.id+'" maxlength="16000" placeholder="اكتب محاولتك هنا…" '+(submitted?'readonly':'')+'>'+esc(ans?.response_text||'')+'</textarea><div class="row task-actions">'+(submitted?badge('submitted'):button('حفظ مسودة','data-action="save-exercise" data-id="'+x.id+'"')+button('تسليم للمدرس','data-action="submit-exercise" data-id="'+x.id+'"'))+'</div>':'<div class="subtle">المهمة مفتوحة. إجابات الطلاب يراجعها المدرس.</div>');
+  return '<article class="textbook-exercise" data-registry-exercise="'+x.id+'" data-exercise-page="'+rawPage+'" data-exercise-label="'+esc(x.activity_label)+'">'+
+   '<div class="textbook-exercise-header"><span class="exercise-page-chip">ص '+printPage(rawPage)+'</span><div><h3>'+esc(x.source_title)+'</h3><p>'+esc(x.activity_label)+'</p></div></div>'+
+   '<p class="exercise-instruction">'+esc(x.instruction_ar||'راجع التمرين الأصلي في صفحة الكتاب.')+'</p>'+imagePreview+
+   '<div class="exercise-answer-area"><span class="exercise-status-label">'+esc(status)+'</span>'+attempt+model+
+   (!waiting&&!originalCount&&!hasSample?'<div class="exercise-status-note">لسه مفيش مفتاح إجابة مُراجع لهذا النشاط. مش هنعرض حل تخميني.</div>':'')+
+   (ans?.review?'<div class="feedback"><strong>مراجعة المدرس'+(ans.review.score!==null?' · '+ans.review.score+'/100':'')+'</strong><p>'+esc(ans.review.feedback_ar)+'</p></div>':'')+
+   '</div></article>';
+ }).join('')||'<div class="study-empty">لا توجد تمارين مفهرسة في الجزء ده.</div>')+'</section>';
  const missing=['audio','video'].includes(l.kind);
  let mediaPanel='';
  if(missing){
@@ -171,13 +205,13 @@ async function lessonPage(id){
  const exerciseSource=(T.book.slug==='listening-speaking'&&l.slug==='language')?{page:24,top:515,bottom:830,verified:true}:
   (T.book.slug==='reading-writing'&&l.slug==='grammar')?{page:29,top:575,bottom:1000,verified:true}:null;
  const practiceVisual=exerciseSource?'<div class="book-practice-source"><div><span class="study-section-kicker">من الكتاب مباشرة</span><h3>ده شكل التمرين في صفحته الأصلية</h3><p>شوف صيغة السؤال في الكتاب، وبعدها جاوب في الأسئلة التفاعلية.</p></div>'+bookCut({page:exerciseSource.page,source_clip:exerciseSource},0,'practice-slice')+'</div>':'';
- const practiceHtml='<section class="study-section practice-panel" id="lesson-practice"><div class="study-section-heading"><div><span class="study-section-kicker">02 · طبّق بنفسك</span><h2>تدريبات الدرس</h2><p>اختار الإجابة، وبعدها اعرف الحل وسببه.</p></div><span class="study-pill">'+(acts||[]).length+' سؤال</span></div>'+practiceVisual+(question||'<div class="study-empty">مفيش أسئلة اختيار آلي في الجزء ده. لو فيه مهمة كتابة أو نشاط من الكتاب هتلاقيه تحت.</div>')+'</section>';
+ const practiceHtml='<section class="study-section practice-panel" id="lesson-practice"><div class="study-section-heading"><div><span class="study-section-kicker">تدريب إضافي من المعهد</span><h2>طبّق على اللي اتعلمته</h2><p>أسئلة مساعدة غير تمارين الكتاب المصوّرة أعلاه. كل سؤال له حل وسبب.</p></div><span class="study-pill">'+additionalQuestions+' سؤال</span></div>'+practiceVisual+(question||'<div class="study-empty">مفيش أسئلة اختيار آلي في الجزء ده. لو فيه مهمة كتابة أو نشاط من الكتاب هتلاقيه تحت.</div>')+'</section>';
  const bookSources=sources.replace('class="card compact-panel" id="book-sources"','class="card compact-panel source-book-card" id="book-sources" open');
  const studyContents='<div class="study-panel" data-study-panel="learn" role="tabpanel" id="study-panel-learn" aria-labelledby="study-tab-learn">'+
   (mediaPanel||'')+(learningBlocks.length?'':guide)+expandedGuide+originalReadings+
   '<div class="study-phase-footer">'+button('خلصت الشرح · ابدأ الحل','data-action="study-tab" data-tab="practice"')+'</div></div>'+
   '<div class="study-panel" data-study-panel="practice" role="tabpanel" id="study-panel-practice" aria-labelledby="study-tab-practice" hidden>'+
-  practiceHtml+workHtml+sourceIndex+
+  sourceIndex+practiceHtml+workHtml+
   '<div class="study-phase-footer">'+button('راجع صفحات الكتاب','data-action="study-tab" data-tab="book"')+'</div></div>'+
   '<div class="study-panel" data-study-panel="book" role="tabpanel" id="study-panel-book" aria-labelledby="study-tab-book" hidden>'+
   '<div class="study-section-heading"><div><span class="study-section-kicker">03 · مرجع الدرس</span><h2>مكان الشرح والتمرين في الكتاب</h2><p>رقم الصفحة المطبوع فقط، وصورة المصدر في نفس الصفحة.</p></div><span class="study-pill">'+pageRange+'</span></div>'+
@@ -198,7 +232,8 @@ async function lessonPage(id){
   '<nav class="study-bottom-nav" aria-label="التنقل بين الدروس">'+prev+button('قائمة الدروس','data-action="unit" data-id="'+T.unit.id+'"')+next+'</nav>'+
   '<p class="study-legal">المحتوى الأصلي معروض للمسجلين المصرح لهم. الشروح الإضافية من إعداد المعهد.</p>'+
   '</div></div></div>';
- initializeQuestionPager();
+ placeOriginalBookQuestions();
+  initializeQuestionPager();
  initializeSourceCuts();
 }
 
@@ -267,6 +302,27 @@ function initializeSourceCuts(){
   }
  },{rootMargin:'380px 0px',threshold:0});
  slices.forEach(el=>observer.observe(el));
+}
+
+function placeOriginalBookQuestions(){
+ const view=document.querySelector('.student-workspace');
+ if(!view)return;
+ for(const reg of view.querySelectorAll('[data-registry-exercise]')){
+  const page=Number(reg.dataset.exercisePage);
+  const label=String(reg.dataset.exerciseLabel||'');
+  const range=label.match(/Exercises?\s+(\d+)\s*[–-]\s*(\d+)/i);
+  const one=label.match(/Exercise\s+(\d+)(?!\d)/i);
+  const target=reg.querySelector('[data-source-quiz-group]');
+  if(!target)continue;
+  for(const quiz of view.querySelectorAll('#lesson-practice .quiz[data-book-origin="cambridge-digitized"]')){
+   if(Number(quiz.dataset.bookPdfPage)!==page)continue;
+   const found=String(quiz.dataset.bookRef||'').match(/-e(\d+)(?:-|$)/i);
+   if(!found)continue;
+   const ex=Number(found[1]);
+   if(!(range&&ex>=Number(range[1])&&ex<=Number(range[2]))&&!(one&&ex===Number(one[1])))continue;
+   target.appendChild(quiz);
+  }
+ }
 }
 function initializeQuestionPager(){
  const container=document.getElementById('lesson-practice');
@@ -727,6 +783,7 @@ document.addEventListener('click',async e=>{
  const act=el.dataset.action;
  try{if(act==='home')home();else if(act==='study-tab')showStudyTab(el.dataset.tab);else if(act==='study-crop-zoom')openSourceZoom(el);else if(act==='close-source-zoom')document.getElementById('source-cut-dialog')?.close();else if(act==='study-source-full'){showStudyTab('book');const d=document.getElementById('book-sources');if(d)d.open=true;await sourcePage(Number(el.dataset.page));}else if(act==='retry-source-cut')await loadSourceCut(el.closest('.source-cut'));else if(act==='quiz-nav')navigateQuestion(Number(el.dataset.step));else if(act==='admin')await adminPage();else if(act==='admin-images'){T.adminTab='images';window.location.hash='upload-images';await adminPage();document.getElementById('admin-source-upload')?.scrollIntoView({block:'start',behavior:'smooth'});}else if(act==='admin-preview-book')await bookPage(el.dataset.id);else if(act==='admin-tab'){T.adminTab=el.dataset.tab;await adminPage();}else if(act==='reviews')await reviewsPage();else if(act==='review-exercises')await reviewIndexedExercisesPage();else if(act==='save-indexed-feedback')await saveIndexedFeedback(el.dataset.id);else if(act==='save-review')await saveReview(el.dataset.id);else if(act==='results')await resultsPage();else if(act==='play-media')await playMedia(el.dataset.id);else if(act==='source-page')await sourcePage(el.dataset.page);else if(act==='save-exercise')await saveIndexedExercise(el.dataset.id,false);else if(act==='submit-exercise')await saveIndexedExercise(el.dataset.id,true);else if(act==='save-work')await saveWork(false);else if(act==='submit-work')await saveWork(true);else if(act==='admin-update')await adminUpdate(el);else if(act==='enroll-student')await enrollStudent();else if(act==='upload-media')await uploadMedia(el.dataset.id);else if(act==='approve-media')await approveMedia(el.dataset.id);else if(act==='upload-sources')await uploadSources();else if(act==='login')authPage();else if(act==='signup')authPage(true);else if(act==='logout'){await db.auth.signOut();await refresh(true)}else if(act==='book')await bookPage(el.dataset.id||T.book?.id);else if(act==='unit')await unitPage(el.dataset.id);else if(act==='lesson')await lessonPage(el.dataset.id);else if(act==='grade')await grade(el.dataset.id,el);}catch(err){notice('خطأ غير متوقع: '+err.message,'warning');}
 });
+document.addEventListener('toggle',e=>{if(e.target?.matches?.('.exercise-book-page')&&e.target.open){e.target.querySelectorAll('.source-cut').forEach(el=>loadSourceCut(el));}},true);
 document.addEventListener('input',e=>{if(e.target?.id==='unit-word-search'){const q=e.target.value.trim().toLocaleLowerCase();document.querySelectorAll('#unit-word-list .word').forEach(el=>{el.hidden=!el.textContent.toLocaleLowerCase().includes(q)});}});
 document.getElementById('nav-home').addEventListener('click',home);
 db.auth.onAuthStateChange((_event,session)=>{if((session?.access_token||null)!==(T.session?.access_token||null)){Promise.resolve().then(()=>refresh(true));}});
