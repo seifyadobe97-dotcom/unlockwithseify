@@ -280,3 +280,11 @@ body{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;font-size:16px;line
  .study-pill{font-size:10.5px;padding:4px 9px}
  .study-phase-footer>.button{width:100%}
 }
+
+
+/* Compact question-by-question practice, keeps submitted answers in DOM */
+.study-question-pager{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid #e6edf3;margin-top:16px;padding-top:16px;flex-wrap:wrap}
+.study-question-pager>.button{min-width:116px;font-size:12.5px;padding:8px 12px}
+.study-quiz-position{font-family:'IBM Plex Sans Arabic',sans-serif;font-weight:800;color:#4d6d88;font-size:13px;background:#f4f7fa;padding:6px 13px;border-radius:99px}
+.student-workspace .quiz[hidden]{display:none!important}
+@media(max-width:480px){.study-question-pager{display:grid;grid-template-columns:1fr auto 1fr;gap:6px}.study-question-pager .button{min-width:0;padding:7px 5px;font-size:11px}.study-quiz-position{padding:5px 8px;font-size:11px;text-align:center}}
