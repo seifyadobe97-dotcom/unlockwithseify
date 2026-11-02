@@ -140,7 +140,7 @@ async function lessonPage(id){
   const unavailable=['audio','video'].includes(item.kind);
   return '<button class="study-lesson-link'+(selected?' active':'')+'" type="button" data-action="lesson" data-id="'+item.id+'" '+(selected?'aria-current="page"':'')+'><span class="study-lesson-order">'+(i+1)+'</span><span class="study-lesson-info"><strong class="en">'+esc(item.title)+'</strong><small>'+loc+(unavailable?' · الميديا سيتم نشرها':'')+'</small></span>'+(selected?'<span class="active-dot" aria-hidden="true"></span>':'')+'</button>';
  }).join('');
- const sidebar='<aside class="study-sidebar"><div class="study-sidebar-header"><span class="study-rail-kicker">مسار التعلم</span><h2>'+unitName+'</h2><p>'+T.lessons.length+' أجزاء · اختار أي درس مباشرة</p></div><details class="study-nav-collapsible" open><summary>أجزاء الوحدة <span class="study-nav-count">'+(lessonNumber+1)+' / '+T.lessons.length+'</span></summary><nav class="study-lesson-nav" aria-label="دروس الوحدة">'+sidebarLinks+'</nav></details><div class="study-sidebar-footer">'+button('العودة لكل أجزاء الوحدة','data-action="unit" data-id="'+T.unit.id+'"')+'</div></aside>';
+ const sidebar='<aside class="study-sidebar"><div class="study-sidebar-header"><span class="study-rail-kicker">مسار التعلم</span><h2>'+unitName+'</h2><p>'+T.lessons.length+' أجزاء · اختار أي درس مباشرة</p></div><details class="study-nav-collapsible" '+(window.matchMedia?.("(max-width:770px)")?.matches?"":"open")+'><summary>أجزاء الوحدة <span class="study-nav-count">'+(lessonNumber+1)+' / '+T.lessons.length+'</span></summary><nav class="study-lesson-nav" aria-label="دروس الوحدة">'+sidebarLinks+'</nav></details><div class="study-sidebar-footer">'+button('العودة لكل أجزاء الوحدة','data-action="unit" data-id="'+T.unit.id+'"')+'</div></aside>';
  const practiceHtml='<section class="study-section practice-panel" id="lesson-practice"><div class="study-section-heading"><div><span class="study-section-kicker">02 · طبّق بنفسك</span><h2>تدريبات الدرس</h2><p>اختار الإجابة، وبعدها اعرف الحل وسببه.</p></div><span class="study-pill">'+(acts||[]).length+' سؤال</span></div>'+(question||'<div class="study-empty">مفيش أسئلة اختيار آلي في الجزء ده. لو فيه مهمة كتابة أو نشاط من الكتاب هتلاقيه تحت.</div>')+'</section>';
  const bookSources=sources.replace('class="card compact-panel" id="book-sources"','class="card compact-panel source-book-card" id="book-sources" open');
  const studyContents='<div class="study-panel" data-study-panel="learn" role="tabpanel" id="study-panel-learn" aria-labelledby="study-tab-learn">'+
@@ -168,6 +168,39 @@ async function lessonPage(id){
   '<nav class="study-bottom-nav" aria-label="التنقل بين الدروس">'+prev+button('قائمة الدروس','data-action="unit" data-id="'+T.unit.id+'"')+next+'</nav>'+
   '<p class="study-legal">المحتوى الأصلي معروض للمسجلين المصرح لهم. الشروح الإضافية من إعداد المعهد.</p>'+
   '</div></div></div>';
+ initializeQuestionPager();
+}
+function initializeQuestionPager(){
+ const container=document.getElementById('lesson-practice');
+ if(!container)return;
+ const qs=[...container.querySelectorAll('.quiz[data-question-id]')];
+ if(qs.length<=1)return;
+ container.dataset.questionIndex="0";
+ qs.forEach((el,i)=>{el.hidden=i!==0;});
+ const nav=document.createElement('div');
+ nav.className="study-question-pager";
+ nav.innerHTML='<button type="button" class="button" data-action="quiz-nav" data-step="-1">السؤال السابق</button><span class="study-quiz-position" aria-live="polite">سؤال 1 من '+qs.length+'</span><button type="button" class="button primary" data-action="quiz-nav" data-step="1">السؤال التالي</button>';
+ container.appendChild(nav);
+ nav.querySelector('[data-step="-1"]').disabled=true;
+}
+function navigateQuestion(step){
+ const container=document.getElementById('lesson-practice');
+ if(!container||!Number.isInteger(step))return;
+ const qs=[...container.querySelectorAll('.quiz[data-question-id]')];
+ if(!qs.length)return;
+ const old=Number(container.dataset.questionIndex)||0;
+ const index=Math.max(0,Math.min(qs.length-1,old+step));
+ container.dataset.questionIndex=String(index);
+ qs.forEach((q,i)=>q.hidden=i!==index);
+ const nav=container.querySelector('.study-question-pager');
+ if(nav){
+  const label=nav.querySelector('.study-quiz-position');
+  if(label)label.textContent='سؤال '+(index+1)+' من '+qs.length;
+  const prev=nav.querySelector('[data-step="-1"]'),next=nav.querySelector('[data-step="1"]');
+  if(prev)prev.disabled=index===0;
+  if(next)next.disabled=index===qs.length-1;
+ }
+ container.querySelector('.study-section-heading')?.scrollIntoView({block:'start',behavior:'auto'});
 }
 function showStudyTab(tab){
  if(!['learn','practice','book'].includes(tab))return;
@@ -178,9 +211,9 @@ function showStudyTab(tab){
   const active=el.dataset.tab===tab;
   el.classList.toggle('is-active',active);
   el.setAttribute('aria-selected',String(active));
-  el.tabIndex=active?0:-1;
+  el.tabIndex=0;
  });
- view.querySelector('.study-tabs')?.scrollIntoView({block:'start',behavior:'instant'});
+ view.querySelector('.study-tabs')?.scrollIntoView({block:'start',behavior:'auto'});
 }
 
  async function grade(id,el){
@@ -593,7 +626,7 @@ async function adminUpdate(el){
 document.addEventListener('click',async e=>{
  const el=e.target.closest('button[data-action]');if(!el)return;
  const act=el.dataset.action;
- try{if(act==='home')home();else if(act==='study-tab')showStudyTab(el.dataset.tab);else if(act==='admin')await adminPage();else if(act==='admin-images'){T.adminTab='images';window.location.hash='upload-images';await adminPage();document.getElementById('admin-source-upload')?.scrollIntoView({block:'start',behavior:'smooth'});}else if(act==='admin-preview-book')await bookPage(el.dataset.id);else if(act==='admin-tab'){T.adminTab=el.dataset.tab;await adminPage();}else if(act==='reviews')await reviewsPage();else if(act==='review-exercises')await reviewIndexedExercisesPage();else if(act==='save-indexed-feedback')await saveIndexedFeedback(el.dataset.id);else if(act==='save-review')await saveReview(el.dataset.id);else if(act==='results')await resultsPage();else if(act==='play-media')await playMedia(el.dataset.id);else if(act==='source-page')await sourcePage(el.dataset.page);else if(act==='save-exercise')await saveIndexedExercise(el.dataset.id,false);else if(act==='submit-exercise')await saveIndexedExercise(el.dataset.id,true);else if(act==='save-work')await saveWork(false);else if(act==='submit-work')await saveWork(true);else if(act==='admin-update')await adminUpdate(el);else if(act==='enroll-student')await enrollStudent();else if(act==='upload-media')await uploadMedia(el.dataset.id);else if(act==='approve-media')await approveMedia(el.dataset.id);else if(act==='upload-sources')await uploadSources();else if(act==='login')authPage();else if(act==='signup')authPage(true);else if(act==='logout'){await db.auth.signOut();await refresh(true)}else if(act==='book')await bookPage(el.dataset.id||T.book?.id);else if(act==='unit')await unitPage(el.dataset.id);else if(act==='lesson')await lessonPage(el.dataset.id);else if(act==='grade')await grade(el.dataset.id,el);}catch(err){notice('خطأ غير متوقع: '+err.message,'warning');}
+ try{if(act==='home')home();else if(act==='study-tab')showStudyTab(el.dataset.tab);else if(act==='quiz-nav')navigateQuestion(Number(el.dataset.step));else if(act==='admin')await adminPage();else if(act==='admin-images'){T.adminTab='images';window.location.hash='upload-images';await adminPage();document.getElementById('admin-source-upload')?.scrollIntoView({block:'start',behavior:'smooth'});}else if(act==='admin-preview-book')await bookPage(el.dataset.id);else if(act==='admin-tab'){T.adminTab=el.dataset.tab;await adminPage();}else if(act==='reviews')await reviewsPage();else if(act==='review-exercises')await reviewIndexedExercisesPage();else if(act==='save-indexed-feedback')await saveIndexedFeedback(el.dataset.id);else if(act==='save-review')await saveReview(el.dataset.id);else if(act==='results')await resultsPage();else if(act==='play-media')await playMedia(el.dataset.id);else if(act==='source-page')await sourcePage(el.dataset.page);else if(act==='save-exercise')await saveIndexedExercise(el.dataset.id,false);else if(act==='submit-exercise')await saveIndexedExercise(el.dataset.id,true);else if(act==='save-work')await saveWork(false);else if(act==='submit-work')await saveWork(true);else if(act==='admin-update')await adminUpdate(el);else if(act==='enroll-student')await enrollStudent();else if(act==='upload-media')await uploadMedia(el.dataset.id);else if(act==='approve-media')await approveMedia(el.dataset.id);else if(act==='upload-sources')await uploadSources();else if(act==='login')authPage();else if(act==='signup')authPage(true);else if(act==='logout'){await db.auth.signOut();await refresh(true)}else if(act==='book')await bookPage(el.dataset.id||T.book?.id);else if(act==='unit')await unitPage(el.dataset.id);else if(act==='lesson')await lessonPage(el.dataset.id);else if(act==='grade')await grade(el.dataset.id,el);}catch(err){notice('خطأ غير متوقع: '+err.message,'warning');}
 });
 document.addEventListener('input',e=>{if(e.target?.id==='unit-word-search'){const q=e.target.value.trim().toLocaleLowerCase();document.querySelectorAll('#unit-word-list .word').forEach(el=>{el.hidden=!el.textContent.toLocaleLowerCase().includes(q)});}});
 document.getElementById('nav-home').addEventListener('click',home);
