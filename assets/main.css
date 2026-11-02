@@ -29,3 +29,107 @@
  .admin-book{padding:12px}
  .study-block{padding:13px 0}
 }
+
+
+/* Unit 1 — teaching-first interface: clean and quiet, desktop and mobile */
+:root{--bg:#f7f9fc;--ink:#24354a;--line:#e3eaf2;--navy:#16365d;--gold:#bd8822}
+html{scroll-behavior:smooth}
+body{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;font-size:16px;line-height:1.85;-webkit-font-smoothing:antialiased}
+.en,[lang="en"]{font-family:'DM Sans',sans-serif;line-height:1.72;letter-spacing:0}
+.shell{max-width:1090px}
+.hero{padding:26px 32px;margin:10px 0 22px;border-radius:18px}
+.hero h1{font-size:clamp(23px,3vw,34px);letter-spacing:0}
+.hero p{font-size:14px;max-width:780px}
+.card{padding:24px;box-shadow:0 3px 14px rgba(25,48,78,.025);border-radius:16px}
+.card h2{color:var(--navy);line-height:1.45;font-size:21px}
+.card h3{line-height:1.5}
+.unit-flow{display:grid;gap:17px;max-width:100%}
+.unit-lesson-list{padding:24px}
+.unit-lesson-list .list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.unit-back,.lesson-back{margin-bottom:16px}
+.lesson-card{min-height:68px;border-color:#e7edf3;box-shadow:none}
+.lesson-card .en{font-weight:700}
+.lesson-num{min-width:32px;text-align:center}
+.source-ref{font-size:12.5px;color:#607893;font-weight:500}
+.source-rights{font-size:12px;color:#748499;margin:20px auto;text-align:center}
+.micro-heading{font-size:12px;font-weight:700;color:#947020;letter-spacing:.02em}
+.section-lead{display:flex;align-items:start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.section-lead h2{margin:4px 0 0}
+.lesson-quicklinks{display:flex;align-items:center;gap:8px;padding:10px 0 17px;overflow-x:auto;scrollbar-width:thin}
+.lesson-quicklinks a{white-space:nowrap;text-decoration:none;background:#fff;color:#254e77;font-size:13px;border:1px solid #dce6ef;padding:7px 13px;border-radius:100px;font-weight:700}
+.lesson-quicklinks a:hover,.lesson-quicklinks a:focus-visible{background:#eff5fb;border-color:#b5cadd}
+.lesson-quicklinks a:first-child{background:#e8f0f8;border-color:#cbdcec}
+#lesson-explanation,#lesson-practice,#original-exercises,#book-sources,#lesson-vocabulary{scroll-margin-top:16px}
+.lesson-brief{background:#f0f6fc}
+.lesson-brief p{margin:3px 0}
+.teacher-guide{padding:23px}
+.teaching-step{border-top:1px solid #e6edf3;padding:17px 0 15px;margin:0}
+.teaching-step:first-of-type{border-top:0;padding-top:2px}
+.step-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:7px}
+.step-number{display:grid;place-items:center;min-width:29px;height:29px;padding:0 6px;border-radius:9px;background:#e9f1fa;color:#20537d;font-family:'DM Sans',sans-serif;font-weight:800;font-size:13px}
+.step-head h3{font-size:17px;margin:0;color:#20364d;flex:1 1 180px}
+.book-page-chip{border-radius:99px;background:#f9f4e8;border:1px solid #eee0bd;color:#806018;font-size:12px;padding:3px 10px;font-weight:700;white-space:nowrap}
+.step-description{font-size:15px;line-height:2;margin:8px 0 11px;color:#37495c}
+.sample{background:#f2f6fa;border-inline-start:3px solid #4d7fb2;padding:13px 16px;border-radius:8px;font-size:15px;white-space:pre-wrap;unicode-bidi:plaintext}
+.compare-example{margin-top:12px;padding:10px 12px;background:#fff8ec;border:1px solid #f1e5cb;border-radius:9px;font-size:14px}
+.compare-example strong{display:block;color:#8f6221;margin-bottom:5px}
+.compare-example .en{display:block;text-align:left;direction:ltr;white-space:normal}
+.learning-tip{margin-top:10px;font-size:14px;color:#38546c;background:#f6f9fc;padding:8px 11px;border-radius:9px}
+.learning-tip strong{color:#1c4c78}
+.educator-note{font-size:12px;margin:14px 0 0}
+.practice-panel{padding:22px}
+.quiz{padding:20px 0 22px;margin:0;border-bottom:1px solid #e5ebf2}
+.quiz:first-of-type{padding-top:6px}
+.quiz:last-child{padding-bottom:0}
+.question{font-size:16px;text-align:start;direction:unset;line-height:1.9;font-weight:650;margin:11px 0 14px}
+.question:dir(ltr){font-family:'DM Sans',sans-serif;text-align:left;line-height:1.65}
+.question:dir(rtl){font-family:'IBM Plex Sans Arabic',sans-serif;text-align:right}
+.choices{gap:7px}
+.choice{border:1px solid #dfe7ef;padding:10px 13px;transition:background .15s,border-color .15s}
+.choice:has(input:checked){background:#edf4fc;border-color:#83aad0}
+.choice.answer-correct{border-color:#99c5ae!important;background:#ecf8f0!important}
+.choice.answer-wrong{border-color:#d9a39b!important;background:#fff0ee!important}
+.answer-feedback{margin-top:15px;border-radius:12px;padding:17px}
+.answer-feedback.good{background:#f1faf4;border-color:#badfc7}
+.answer-feedback.bad{background:#fff3f0;border-color:#e4b9b1}
+.answer-feedback strong{font-size:15px}
+.answer-feedback p{margin:6px 0}
+.answer-feedback .en{display:inline-block;unicode-bidi:plaintext;direction:ltr;text-align:left;font-weight:650}
+.feedback-reason{margin-top:10px;background:#fff;border-radius:8px;padding:10px 12px;line-height:1.9;color:#243c52}
+.compact-panel{padding:0;margin:15px 0}
+.compact-panel>summary{padding:18px 22px;font-size:16px;font-weight:750;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.compact-panel>summary::-webkit-details-marker{display:none}
+.compact-panel>summary:before{content:"＋";font-size:19px;color:#4e7198;margin-inline-end:6px}
+.compact-panel[open]>summary:before{content:"−"}
+.compact-panel[open]>summary{border-bottom:1px solid var(--line)}
+.compact-panel>p,.compact-panel>.row,.compact-panel>.vocab,.compact-panel>.list,.compact-panel>.notice,.compact-panel>.study-block,.compact-panel>.en,.compact-panel>.field,.compact-panel>#source-availability{margin:14px 20px}
+.compact-panel .vocab{padding-bottom:10px}
+.compact-panel .word{padding:12px}
+.compact-panel .source-ref{margin-top:6px}
+.compact-panel .indexed-task{padding:15px 2px;border-bottom:1px solid #e5ebf1}
+.compact-panel .indexed-task:last-child{border-bottom:0}
+.compact-panel .task-head h3{margin:3px 0;font-size:15px}
+.compact-panel .task-actions{margin-top:10px}
+.unit-dictionary .word-search{max-width:420px;margin:16px 20px}
+.unit-dictionary .word[hidden]{display:none!important}
+.lesson-nav{margin-top:24px;padding:16px 0;justify-content:center}
+.lesson-nav .button{background:#fff}
+.original-text{white-space:pre-wrap;line-height:1.9}
+.field,.button{min-height:43px}
+.button.primary{background:#1d456f;border-color:#1d456f}
+.tag{white-space:nowrap}
+@media(max-width:760px){
+ .unit-lesson-list .list{grid-template-columns:1fr}
+ .unit-lesson-list{padding:16px}
+ .card{padding:17px}
+ .teacher-guide{padding:16px}
+ .hero{padding:19px 20px}
+ .step-head h3{font-size:16px}
+ .lesson-quicklinks{margin:0 -3px;padding:7px 3px 15px}
+ .lesson-quicklinks a{font-size:12px;padding:6px 11px}
+ .compact-panel{padding:0}
+ .compact-panel>summary{padding:15px}
+ .compact-panel>p,.compact-panel>.row,.compact-panel>.vocab,.compact-panel>.list,.compact-panel>.notice,.compact-panel>.study-block,.compact-panel>.en,.compact-panel>.field,.compact-panel>#source-availability{margin:13px 14px}
+ .unit-dictionary .word-search{margin:13px 14px}
+}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.choice,.unit-card{transition:none}}
