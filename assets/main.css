@@ -424,3 +424,21 @@ body{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;font-size:16px;line
 .admin-model-row .row{margin-top:10px}
 .admin-model-row .tag{margin-bottom:8px}
 @media(max-width:650px){.admin-answers{padding:15px}.admin-model-list{padding:9px}.admin-model-row{padding:11px}}
+
+
+/* Unit 1 source-page study flow: one printed page at a time */
+.exercise-page-nav{background:#f3f7fa;border:1px solid #dfe8ef;border-radius:13px;padding:14px;margin:13px 0 21px;scroll-margin-top:65px}
+.exercise-page-nav-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:11px;flex-wrap:wrap}
+.exercise-page-nav-heading strong{font-size:15px;color:#224965}
+.exercise-page-nav-heading span{font-size:12px;color:#698098}
+.exercise-page-nav-buttons{display:flex;gap:8px;overflow-x:auto;padding:1px 1px 11px;scrollbar-width:thin}
+.exercise-page-choice{cursor:pointer;border:1px solid #cbdbe7;border-radius:9px;background:#fff;color:#365974;padding:7px 12px;white-space:nowrap;font-size:13px;font-weight:700;min-width:54px;min-height:40px}
+.exercise-page-choice:hover{background:#eaf3fa}
+.exercise-page-choice.is-active,.exercise-page-choice[aria-current="page"]{background:#23557b;color:white;border-color:#23557b}
+.exercise-page-steps{border-top:1px solid #dae6ee;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 0 0}
+.exercise-page-steps .button{min-height:36px;font-size:12px;padding:6px 12px}
+.exercise-page-position{font-weight:750;font-size:12px;color:#47667c;text-align:center}
+.textbook-exercise[hidden]{display:none!important}
+.exercise-book-page[open]>.textbook-figure{padding:10px;background:#fff}
+.book-first-step .book-teacher-note>.button{font-size:12px;margin-top:15px;background:#e8f2fa;border-color:#bfd4e4;color:#205779}
+@media(max-width:600px){.exercise-page-nav{padding:11px}.exercise-page-nav-heading span{display:none}.exercise-page-choice{min-height:38px;font-size:12px}.exercise-page-steps .button{font-size:11px;padding:6px 8px}.exercise-page-position{font-size:11px}}
